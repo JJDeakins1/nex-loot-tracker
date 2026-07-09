@@ -20,6 +20,12 @@ public class NexLootTracker
 	String mvp = "";
 	boolean mvpInOwnName = false;
 
+	/**
+	 * Kill contribution percent (0-100) derived from DPS Counter, if available.
+	 * Null when DPS Counter is not enabled/installed or does not have data.
+	 */
+	Double killContribution = null;
+
 	String specialLoot = "";
 	String specialLootReceiver = "";
 	boolean specialLootInOwnName = false;

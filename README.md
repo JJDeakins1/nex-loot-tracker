@@ -7,8 +7,9 @@ A RuneLite plugin that tracks Nex kills, personal loot, team unique drops, and s
 - Logs every Nex kill to a local JSON-lines file
 - Tracks personal loot from `NpcLootReceived` events
 - Parses team unique broadcasts (`received a drop`) and MVP messages
-- Side panel with kills logged, filters, uniques table, dry streak, split GP earned, regular drops, and split changer
+- Side panel with kills logged, average kill contribution, filters, uniques table, dry streak, split GP earned, regular drops, and split changer
 - Configurable default FFA, FFA cutoff, and Last X kills filter
+- Kill contribution per kill (optional) — requires the built-in **DPS Counter** plugin to be enabled
 
 ## Data storage
 
@@ -20,32 +21,11 @@ Data is stored at:
 
 Each line is one JSON object representing a kill or unique drop entry.
 
-## Development
+### Kill contribution
 
-Requirements: Java 11+, Gradle wrapper included.
+Kill contribution is logged as a percentage of total fight damage from RuneLite's **DPS Counter** plugin. **DPS Counter must be enabled** for this value to be recorded; if it is disabled or has no data for a kill, `killContribution` is stored as `null`.
 
-```bash
-./gradlew build
-./gradlew run
-```
-
-The `run` task launches RuneLite in developer mode with the plugin loaded.
-
-## Plugin Hub submission
-
-1. Push this repository to a public GitHub repo
-2. Add a BSD 2-Clause `LICENSE` (included)
-3. Fork [plugin-hub](https://github.com/runelite/plugin-hub)
-4. Create `plugins/nex-loot-tracker` with:
-
-```
-repository=https://github.com/<user>/nex-loot-tracker.git
-commit=<40-char-commit-hash>
-```
-
-5. Open a pull request and wait for CI/review
-
-See the [plugin-hub README](https://github.com/runelite/plugin-hub/blob/master/README.md) for full details.
+The side panel's average kill contribution only includes kills with non-null contribution data (filtered by your selected team size and time range).
 
 ## Tracked uniques
 
@@ -57,6 +37,4 @@ See the [plugin-hub README](https://github.com/runelite/plugin-hub/blob/master/R
 - Zaryte vambraces
 - Nexling (pet)
 
-## License
 
-BSD 2-Clause License. See [LICENSE](LICENSE).

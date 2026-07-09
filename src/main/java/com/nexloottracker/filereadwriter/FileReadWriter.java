@@ -2,6 +2,7 @@ package com.nexloottracker.filereadwriter;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
@@ -48,9 +49,8 @@ public class FileReadWriter
 		try
 		{
 			log.info("Writing Nex kill to {}", fileName);
-			JsonParser parser = new JsonParser();
 			FileWriter fw = new FileWriter(fileName, true);
-			gson.toJson(parser.parse(getJsonString(kill, gson, parser)), fw);
+			writeKillLine(fw, kill);
 			fw.append("\n");
 			fw.close();
 		}
@@ -64,6 +64,15 @@ public class FileReadWriter
 	{
 		JsonObject json = parser.parse(gson.toJson(kill)).getAsJsonObject();
 		JsonArray lootListJson = new JsonArray();
+
+		if (kill.getKillContribution() == null)
+		{
+			json.add("killContribution", JsonNull.INSTANCE);
+		}
+		else
+		{
+			json.addProperty("killContribution", kill.getKillContribution());
+		}
 
 		for (NexLootTrackerItem item : kill.getLootList())
 		{
@@ -294,7 +303,6 @@ public class FileReadWriter
 	{
 		try
 		{
-			JsonParser parser = new JsonParser();
 			String fileName = getDataFileName();
 			FileWriter fw = new FileWriter(fileName, false);
 
@@ -302,7 +310,7 @@ public class FileReadWriter
 			{
 				syncSpecialLootInOwnName(kill);
 
-				gson.toJson(parser.parse(getJsonString(kill, gson, parser)), fw);
+				writeKillLine(fw, kill);
 				fw.append("\n");
 			}
 
@@ -351,7 +359,6 @@ public class FileReadWriter
 	{
 		try
 		{
-			JsonParser parser = new JsonParser();
 			String fileName = getDataFileName();
 			ArrayList<NexLootTracker> killList = readFromFile();
 			FileWriter fw = new FileWriter(fileName, false);
@@ -363,7 +370,7 @@ public class FileReadWriter
 					kill = updatedKill;
 				}
 
-				gson.toJson(parser.parse(getJsonString(kill, gson, parser)), fw);
+				writeKillLine(fw, kill);
 				fw.append("\n");
 			}
 
@@ -395,6 +402,12 @@ public class FileReadWriter
 	public String getDataFileName()
 	{
 		return dataDir + File.separator + DATA_FILE_NAME;
+	}
+
+	private void writeKillLine(FileWriter fw, NexLootTracker kill) throws IOException
+	{
+		JsonParser parser = new JsonParser();
+		fw.write(getJsonString(kill, gson, parser));
 	}
 
 	private void ignoreResult(boolean ignored)

@@ -36,6 +36,7 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import java.text.NumberFormat;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -163,6 +164,8 @@ public class NexLootTrackerPanel extends PluginPanel
 		{
 			contentPanel.add(buildKillsLoggedPanel());
 			contentPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+			contentPanel.add(buildAverageKillContributionPanel());
+			contentPanel.add(Box.createRigidArea(new Dimension(0, 5)));
 		}
 
 		if (config.showUniquesTable())
@@ -219,19 +222,63 @@ public class NexLootTrackerPanel extends PluginPanel
 
 	private JPanel buildKillsLoggedPanel()
 	{
-		JPanel wrapper = new JPanel(new GridLayout(0, 2));
+		final ArrayList<NexLootTracker> distinct = getDistinctKills(getFilteredKillList());
+		return buildStatRow("Kills Logged:", String.valueOf(distinct.size()));
+	}
+
+	private JPanel buildAverageKillContributionPanel()
+	{
+		final ArrayList<NexLootTracker> distinct = getDistinctKills(getFilteredKillList());
+		final String label = teamSizeFilter + " Average Kill Contribution:";
+		final String value = getAverageKillContributionText(distinct);
+		return buildStatRow(label, value);
+	}
+
+	private JPanel buildStatRow(String labelText, String valueText)
+	{
+		JPanel wrapper = new JPanel();
+		wrapper.setLayout(new BoxLayout(wrapper, BoxLayout.X_AXIS));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR.darker());
 		wrapper.setBorder(new EmptyBorder(5, 10, 5, 10));
 
-		JLabel label = textPanel("Kills Logged:");
+		JLabel label = textPanel(labelText);
 		label.setHorizontalAlignment(SwingConstants.LEFT);
-		JLabel value = textPanel(String.valueOf(getDistinctKills(getFilteredKillList()).size()));
+
+		JLabel value = textPanel(valueText);
 		value.setHorizontalAlignment(SwingConstants.RIGHT);
 		value.setForeground(Color.LIGHT_GRAY);
+		value.setPreferredSize(new Dimension(52, value.getPreferredSize().height));
+		value.setMinimumSize(value.getPreferredSize());
+		value.setMaximumSize(value.getPreferredSize());
 
 		wrapper.add(label);
+		wrapper.add(Box.createHorizontalGlue());
 		wrapper.add(value);
+
 		return wrapper;
+	}
+
+	private String getAverageKillContributionText(ArrayList<NexLootTracker> distinctKills)
+	{
+		double sum = 0.0;
+		int count = 0;
+
+		for (NexLootTracker kill : distinctKills)
+		{
+			if (kill.getKillContribution() == null)
+			{
+				continue;
+			}
+			sum += kill.getKillContribution();
+			count++;
+		}
+
+		if (count == 0)
+		{
+			return "-";
+		}
+
+		return String.format(Locale.US, "%.2f%%", sum / count);
 	}
 
 	private JPanel buildFilterPanel()
@@ -259,7 +306,7 @@ public class NexLootTrackerPanel extends PluginPanel
 		JComboBox<String> mvpChoices = comboBox(new String[]{"Both", "My MVP", "Not My MVP"}, mvpFilter, selected -> mvpFilter = selected);
 
 		JComboBox<String> teamChoices = comboBox(new String[]{
-			"All Sizes", "Solo", "Duo", "Trio", "4-Man", "5-Man"
+			"All Sizes", "Solo", "Duo", "Trio", "4-Man", "5-Man", "10+"
 		}, teamSizeFilter, selected -> teamSizeFilter = selected);
 
 		JComboBox<String> splitChoices = comboBox(new String[]{"Both", "Split Only", "FFA Only"}, splitFilter, selected -> splitFilter = selected);
@@ -598,6 +645,9 @@ public class NexLootTrackerPanel extends PluginPanel
 				break;
 			case "5-Man":
 				filtered = filtered.stream().filter(kill -> kill.getTeamSize() == 5).collect(Collectors.toCollection(ArrayList::new));
+				break;
+			case "10+":
+				filtered = filtered.stream().filter(kill -> kill.getTeamSize() >= 10).collect(Collectors.toCollection(ArrayList::new));
 				break;
 		}
 

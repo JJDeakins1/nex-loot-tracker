@@ -37,11 +37,17 @@ public class FileReadWriter
 
 	public void writeToFile(NexLootTracker kill)
 	{
+		if (dataDir == null || username == null || username.isEmpty())
+		{
+			log.error("Cannot write Nex kill: profile not initialized");
+			return;
+		}
+
 		final String fileName = getDataFileName();
 
 		try
 		{
-			log.debug("Writing Nex kill to {}", fileName);
+			log.info("Writing Nex kill to {}", fileName);
 			JsonParser parser = new JsonParser();
 			FileWriter fw = new FileWriter(fileName, true);
 			gson.toJson(parser.parse(getJsonString(kill, gson, parser)), fw);
@@ -172,15 +178,23 @@ public class FileReadWriter
 		}
 
 		final String discovered = discoverProfile(accountHash);
-		if (discovered == null)
+		if (discovered != null)
 		{
-			log.debug("No Nex loot profile available yet");
-			return false;
+			log.info("Using discovered Nex loot profile: {}", discovered);
+			updateUsername(discovered);
+			return true;
 		}
 
-		log.info("Using discovered Nex loot profile: {}", discovered);
-		updateUsername(discovered);
-		return true;
+		if (accountHash != 0)
+		{
+			final String hashProfile = "account-" + accountHash;
+			log.info("Creating Nex loot profile for account hash: {}", accountHash);
+			updateUsername(hashProfile);
+			return true;
+		}
+
+		log.warn("No Nex loot profile available yet");
+		return false;
 	}
 
 	private String discoverProfile(long accountHash)
@@ -216,7 +230,25 @@ public class FileReadWriter
 			}
 		}
 
-		return profilesWithData == 1 ? profileWithData : null;
+		return profilesWithData == 1 ? profileWithData : discoverSoleProfileDirectory();
+	}
+
+	private String discoverSoleProfileDirectory()
+	{
+		final File baseDir = new File(RUNELITE_DIR, "nex-loot-tracker");
+		final File[] profileDirs = baseDir.listFiles(File::isDirectory);
+		if (profileDirs == null)
+		{
+			return null;
+		}
+
+		String soleProfile = null;
+		for (File profileDir : profileDirs)
+		{
+			soleProfile = profileDir.getName();
+		}
+
+		return profileDirs.length == 1 ? soleProfile : null;
 	}
 
 	private boolean logContainsAccountHash(File profileDir, long accountHash)

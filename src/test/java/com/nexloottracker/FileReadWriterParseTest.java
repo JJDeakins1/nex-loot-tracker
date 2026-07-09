@@ -21,6 +21,11 @@ public class FileReadWriterParseTest
 			".runelite/nex-loot-tracker/deakinsjj07@gmail.com/nex_loot_data.log"
 		)).trim();
 
+		if (line.isEmpty())
+		{
+			return;
+		}
+
 		Gson gson = new GsonBuilder().create();
 		NexLootTracker kill = gson.fromJson(new JsonParser().parse(line), NexLootTracker.class);
 

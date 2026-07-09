@@ -47,6 +47,12 @@ import java.util.regex.Pattern;
 public class NexLootTrackerPlugin extends Plugin
 {
 	private static final int NEX_REGION_ID = 11603;
+	private static final Set<Integer> NEX_REGION_IDS = new HashSet<>(Arrays.asList(
+		11601,
+		11602,
+		NEX_REGION_ID,
+		48385 // instanced Nex world view (observed in live client)
+	));
 	private static final int FINALIZE_DELAY_TICKS = 8;
 
 	private static final Set<Integer> NEX_NPC_IDS = new HashSet<>(Arrays.asList(
@@ -184,12 +190,17 @@ public class NexLootTrackerPlugin extends Plugin
 	{
 		if (WorldUtils.playerOnBetaWorld(client))
 		{
+			log.info("Nex loot ignored: player is on a beta world");
 			return;
 		}
 
 		final NPC npc = event.getNpc();
 		if (npc == null || !NEX_NPC_IDS.contains(npc.getId()))
 		{
+			if (npc != null)
+			{
+				log.debug("NpcLootReceived ignored: npcId={} (not Nex)", npc.getId());
+			}
 			return;
 		}
 
@@ -215,7 +226,8 @@ public class NexLootTrackerPlugin extends Plugin
 			}
 		}
 
-		log.debug("Recorded personal Nex loot with {} items", kill.getLootList().size());
+		log.info("Recorded personal Nex loot: {} items, teamSize={}, npcId={}",
+			kill.getLootList().size(), kill.getTeamSize(), npc.getId());
 	}
 
 	@Subscribe
@@ -231,12 +243,20 @@ public class NexLootTrackerPlugin extends Plugin
 			return;
 		}
 
-		if (!isInNexArea())
+		final String message = Text.removeTags(event.getMessage()).replace('\u00A0', ' ');
+
+		if (!shouldProcessNexChat(message))
 		{
+			if (message.contains("Nex") || message.contains("MVP") || message.contains("kill count"))
+			{
+				log.info("Nex-related chat ignored (not in Nex area, region={}): {}",
+					client.getLocalPlayer() != null ? client.getLocalPlayer().getWorldLocation().getRegionID() : -1,
+					message);
+			}
 			return;
 		}
 
-		final String message = Text.removeTags(event.getMessage()).replace('\u00A0', ' ');
+		log.debug("Nex area chat [{}]: {}", event.getType(), message);
 		final String playerName = getLocalPlayerName();
 
 		Matcher matcher = KILL_COUNT_PATTERN.matcher(message);
@@ -250,6 +270,8 @@ public class NexLootTrackerPlugin extends Plugin
 			kill.setAccountHash(client.getAccountHash());
 			kill.setProfileType(String.valueOf(RuneScapeProfileType.getCurrent(client)));
 			kill.setDate(System.currentTimeMillis());
+			log.info("Nex kill count detected: kc={}, teamSize={}, scheduling finalize in {} ticks",
+				kill.getCompletionCount(), kill.getTeamSize(), FINALIZE_DELAY_TICKS);
 			scheduleFinalize();
 			return;
 		}
@@ -488,8 +510,15 @@ public class NexLootTrackerPlugin extends Plugin
 	{
 		if (currentKill == null)
 		{
+			log.warn("finalizeCurrentKill called but currentKill is null");
 			return;
 		}
+
+		log.info("Finalizing Nex kill: kc={}, lootItems={}, specialLoot={}, teamSize={}",
+			currentKill.getCompletionCount(),
+			currentKill.getLootList().size(),
+			currentKill.getSpecialLoot(),
+			currentKill.getTeamSize());
 
 		if (currentKill.getTeamSize() <= 0)
 		{
@@ -507,6 +536,8 @@ public class NexLootTrackerPlugin extends Plugin
 		}
 
 		currentKill.setKillComplete(true);
+
+		fileReadWriter.ensureProfile(client.getUsername(), client.getAccountHash());
 
 		for (NexLootTracker pending : pendingUniqueKills)
 		{
@@ -647,6 +678,34 @@ public class NexLootTrackerPlugin extends Plugin
 		return Math.max(teamSize, 1);
 	}
 
+	private boolean shouldProcessNexChat(String message)
+	{
+		return isInNexArea() || isTrackedNexChatMessage(message);
+	}
+
+	private boolean isTrackedNexChatMessage(String message)
+	{
+		return KILL_COUNT_PATTERN.matcher(message).find()
+			|| MVP_SELF_PATTERN.matcher(message).matches()
+			|| MVP_NAMED_PATTERN.matcher(message).matches()
+			|| MVP_LEGACY_PATTERN.matcher(message).matches()
+			|| UNIQUE_DROP_PATTERN.matcher(message).find()
+			|| PET_PATTERN.matcher(message).find();
+	}
+
+	private boolean isNexNpcNearby()
+	{
+		for (NPC npc : client.getNpcs())
+		{
+			if (npc != null && NEX_NPC_IDS.contains(npc.getId()))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	private boolean isInNexArea()
 	{
 		final Player localPlayer = client.getLocalPlayer();
@@ -655,7 +714,21 @@ public class NexLootTrackerPlugin extends Plugin
 
 	private boolean isPlayerInNexArea(Player player)
 	{
-		return player.getWorldLocation().getRegionID() == NEX_REGION_ID;
+		if (NEX_REGION_IDS.contains(player.getWorldLocation().getRegionID()))
+		{
+			return true;
+		}
+
+		if (!isNexNpcNearby())
+		{
+			return false;
+		}
+
+		final Player localPlayer = client.getLocalPlayer();
+		return localPlayer != null
+			&& player.getWorldView() != null
+			&& localPlayer.getWorldView() != null
+			&& player.getWorldView().getId() == localPlayer.getWorldView().getId();
 	}
 
 	private boolean isRelevantChatType(ChatMessageType type)

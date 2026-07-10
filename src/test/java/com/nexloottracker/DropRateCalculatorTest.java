@@ -22,6 +22,15 @@ public class DropRateCalculatorTest
 	}
 
 	@Test
+	public void getEffectiveKillContributionAppliesTenPercentMvpBoost()
+	{
+		NexLootTracker kill = killWithContribution(1, 25.0);
+		kill.setMvpInOwnName(true);
+
+		assertEquals(27.5, DropRateCalculator.getEffectiveKillContribution(kill), 0.001);
+	}
+
+	@Test
 	public void getEffectiveKillContributionAddsMvpBonus()
 	{
 		NexLootTracker kill = killWithContribution(1, 20.0);

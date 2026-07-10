@@ -15,14 +15,15 @@ import java.util.function.Predicate;
 public final class DropRateCalculator
 {
 	public static final double ANY_UNIQUE_DENOMINATOR = 43.0;
-	public static final double MVP_CONTRIBUTION_BONUS = 2.0;
+	public static final double MVP_CONTRIBUTION_MULTIPLIER = 1.10;
 
 	private DropRateCalculator()
 	{
 	}
 
 	/**
-	 * Effective drop contribution includes the +2% MVP bonus when the local player was MVP.
+	 * Effective drop contribution applies a 10% MVP boost when the local player was MVP.
+	 * e.g. 20% damage share becomes 22% (20 × 1.10).
 	 */
 	public static Double getEffectiveKillContribution(NexLootTracker kill)
 	{
@@ -35,7 +36,7 @@ public final class DropRateCalculator
 		double effective = contribution;
 		if (kill.isMvpInOwnName())
 		{
-			effective += MVP_CONTRIBUTION_BONUS;
+			effective *= MVP_CONTRIBUTION_MULTIPLIER;
 		}
 
 		return Math.max(0.0, Math.min(100.0, effective));

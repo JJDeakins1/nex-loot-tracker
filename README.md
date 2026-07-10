@@ -37,7 +37,7 @@ Think of it like a progress bar toward your next personal drop:
 ### How it is calculated
 
 1. **Each kill adds progress** based on your damage share that kill (tracked from Nex hitsplats).
-2. **MVP kills add +2%** on top of your damage share, matching how Nex awards MVP.
+2. **MVP kills get a 10% boost** on your damage share (e.g. 20% becomes 22%), matching how Nex awards MVP.
 3. **Your personal rate depends on team size and contribution.** Nex rolls uniques once per kill for the team (roughly **1/43** chance someone gets a unique in a full group). Your share of that roll is based on your contribution that kill — so fewer teammates means a larger share and faster Due progress. Equal damage examples (no MVP):
    - **5-man** (~20% each) → about **1/215** per kill for you
    - **4-man** (~25% each) → about **1/172**
@@ -55,7 +55,7 @@ This is separate from Due. It counts how many kills have passed since **anyone**
 
 ### Kill contribution
 
-Kill contribution is your damage percentage for that fight, tracked from hitsplats on Nex. The average shown in the panel includes the **+2% MVP bonus** when you were MVP. Only kills with contribution data are included in Due and the average (respecting your active filters).
+Kill contribution is your damage percentage for that fight, tracked from hitsplats on Nex. The average shown in the panel includes the **10% MVP boost** when you were MVP. Only kills with contribution data are included in Due and the average (respecting your active filters).
 
 ## Data storage
 

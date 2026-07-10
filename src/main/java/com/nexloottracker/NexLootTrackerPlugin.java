@@ -11,6 +11,7 @@ import net.runelite.api.ItemComposition;
 import net.runelite.api.NPC;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.Player;
+import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
@@ -24,8 +25,6 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.PluginManager;
-import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
@@ -35,13 +34,10 @@ import net.runelite.client.util.Text;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import java.awt.image.BufferedImage;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -70,6 +66,11 @@ public class NexLootTrackerPlugin extends Plugin
 		NpcID.NEX_DYING
 	));
 
+	private static final Set<Integer> FINAL_NEX_DESPAWN_IDS = new HashSet<>(Arrays.asList(
+		NpcID.NEX,
+		NpcID.NEX_DYING
+	));
+
 	private static final Pattern KILL_COUNT_PATTERN = Pattern.compile("Your Nex kill count is:?\\s*(\\d+)\\.");
 	private static final Pattern UNIQUE_DROP_PATTERN = Pattern.compile("(.+?) (?:has )?received a drop: (.+)");
 	private static final Pattern MVP_SELF_PATTERN = Pattern.compile("^You were the MVP for this fight!\\.?$");
@@ -93,10 +94,9 @@ public class NexLootTrackerPlugin extends Plugin
 	private FileReadWriter fileReadWriter;
 
 	@Inject
-	private PluginManager pluginManager;
-
-	@Inject
 	private PartyService partyService;
+
+	private final NexKillContributionTracker contributionTracker = new NexKillContributionTracker();
 
 	private NexLootTrackerPanel panel;
 	private NavigationButton navButton;
@@ -196,6 +196,17 @@ public class NexLootTrackerPlugin extends Plugin
 				finalizeCurrentKill();
 			}
 		}
+	}
+
+	@Subscribe
+	public void onHitsplatApplied(HitsplatApplied event)
+	{
+		if (WorldUtils.playerOnBetaWorld(client))
+		{
+			return;
+		}
+
+		contributionTracker.onHitsplatApplied(event, client, NEX_NPC_IDS);
 	}
 
 	@Subscribe
@@ -524,7 +535,7 @@ public class NexLootTrackerPlugin extends Plugin
 		}
 
 		final NPC npc = event.getNpc();
-		if (npc == null || !npc.isDead() || !NEX_NPC_IDS.contains(npc.getId()))
+		if (npc == null || !npc.isDead() || !FINAL_NEX_DESPAWN_IDS.contains(npc.getId()))
 		{
 			return;
 		}
@@ -567,13 +578,12 @@ public class NexLootTrackerPlugin extends Plugin
 		}
 
 		currentKill.setKillComplete(true);
+		snapshotKillContribution(currentKill);
 		Double contribution = currentKill.getKillContribution();
-		if (contribution == null)
-		{
-			contribution = getKillContributionFromDpsCounter();
-			currentKill.setKillContribution(contribution);
-		}
-		log.info("Nex kill contribution from DPS Counter: {}", contribution);
+		log.info("Nex kill contribution: {} (local={}, total={})",
+			contribution,
+			contributionTracker.getLocalDamage(),
+			contributionTracker.getTotalDamage());
 
 		fileReadWriter.ensureProfile(client.getUsername(), client.getAccountHash());
 
@@ -594,191 +604,28 @@ public class NexLootTrackerPlugin extends Plugin
 
 	private void snapshotKillContribution(NexLootTracker kill)
 	{
-		if (kill == null || kill.getKillContribution() != null)
+		if (kill == null)
 		{
 			return;
 		}
 
-		final Double contribution = getKillContributionFromDpsCounter();
+		final Double contribution = getKillContributionPercent();
 		kill.setKillContribution(contribution);
-		log.info("Snapshotted Nex kill contribution from DPS Counter: {}", contribution);
+		log.info("Snapshotted Nex kill contribution: {} (local={}, total={})",
+			contribution,
+			contributionTracker.getLocalDamage(),
+			contributionTracker.getTotalDamage());
 	}
 
-	private Double getKillContributionFromDpsCounter()
+	private Double getKillContributionPercent()
 	{
-		try
+		final Double contribution = contributionTracker.getContributionPercent();
+		if (contribution == null)
 		{
-			final Set<String> localPlayerNames = getLocalPlayerNameVariants();
-			if (localPlayerNames.isEmpty())
-			{
-				log.info("Kill contribution unavailable: local player name is missing");
-				return null;
-			}
-
-			final Object dpsPlugin = getEnabledPluginInstance("net.runelite.client.plugins.dpscounter.DpsCounterPlugin");
-			if (dpsPlugin == null)
-			{
-				log.info("Kill contribution unavailable: DPS Counter plugin is not enabled");
-				return null;
-			}
-
-			final Method getTotalMethod = dpsPlugin.getClass().getDeclaredMethod("getTotal");
-			final Object totalMember = invokeAccessible(getTotalMethod, dpsPlugin);
-			if (totalMember == null)
-			{
-				log.info("Kill contribution unavailable: DPS Counter total member is missing");
-				return null;
-			}
-
-			final Method getTotalDamageMethod = totalMember.getClass().getDeclaredMethod("getDamage");
-			final int totalDamage = (int) invokeAccessible(getTotalDamageMethod, totalMember);
-			if (totalDamage <= 0)
-			{
-				log.info("Kill contribution unavailable: DPS Counter total damage is {}", totalDamage);
-				return null;
-			}
-
-			final Method getMembersMethod = dpsPlugin.getClass().getDeclaredMethod("getMembers");
-			final Object membersObj = invokeAccessible(getMembersMethod, dpsPlugin);
-			if (!(membersObj instanceof Map))
-			{
-				log.info("Kill contribution unavailable: DPS Counter members map is unavailable");
-				return null;
-			}
-
-			@SuppressWarnings("unchecked")
-			final Map<Object, Object> members = (Map<Object, Object>) membersObj;
-			int localDamage = -1;
-			for (Object member : members.values())
-			{
-				if (member == null)
-				{
-					continue;
-				}
-
-				final Method memberNameMethod = member.getClass().getDeclaredMethod("getName");
-				final Object nameObj = invokeAccessible(memberNameMethod, member);
-				final String memberName = nameObj == null ? "" : nameObj.toString();
-				if (!isLocalPlayerName(memberName, localPlayerNames))
-				{
-					continue;
-				}
-
-				final Method memberDamageMethod = member.getClass().getDeclaredMethod("getDamage");
-				localDamage = (int) invokeAccessible(memberDamageMethod, member);
-				break;
-			}
-
-			if (localDamage < 0)
-			{
-				log.info("Kill contribution unavailable: local player not found in DPS Counter members (names={})", localPlayerNames);
-				return null;
-			}
-
-			double percent = (localDamage * 100.0) / totalDamage;
-			if (Double.isNaN(percent) || Double.isInfinite(percent))
-			{
-				log.info("Kill contribution unavailable: invalid contribution calculation (local={}, total={})", localDamage, totalDamage);
-				return null;
-			}
-
-			return Math.max(0.0, Math.min(100.0, percent));
-		}
-		catch (Exception e)
-		{
-			log.info("Kill contribution unavailable: unable to read DPS Counter", e);
-			return null;
-		}
-	}
-
-	private Set<String> getLocalPlayerNameVariants()
-	{
-		final Set<String> names = new LinkedHashSet<>();
-		final Player player = client.getLocalPlayer();
-		if (player == null || player.getName() == null)
-		{
-			return names;
+			log.info("Kill contribution unavailable: no Nex damage tracked for this kill");
 		}
 
-		addPlayerNameVariant(names, player.getName());
-
-		final PartyMember localMember = partyService.getLocalMember();
-		if (localMember != null)
-		{
-			addPlayerNameVariant(names, localMember.getDisplayName());
-		}
-
-		return names;
-	}
-
-	private void addPlayerNameVariant(Set<String> names, String name)
-	{
-		if (name == null || name.isEmpty())
-		{
-			return;
-		}
-
-		final String cleaned = Text.removeTags(name).replace('\u00A0', ' ').trim();
-		if (!cleaned.isEmpty())
-		{
-			names.add(cleaned);
-			names.add(Text.toJagexName(cleaned));
-		}
-	}
-
-	private boolean isLocalPlayerName(String memberName, Set<String> localPlayerNames)
-	{
-		final String cleanedMember = Text.removeTags(memberName).replace('\u00A0', ' ').trim();
-		final String jagexMember = Text.toJagexName(cleanedMember);
-
-		for (String localName : localPlayerNames)
-		{
-			if (cleanedMember.equalsIgnoreCase(localName) || jagexMember.equalsIgnoreCase(localName))
-			{
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	private static Object invokeAccessible(Method method, Object target, Object... args) throws ReflectiveOperationException
-	{
-		method.setAccessible(true);
-		return method.invoke(target, args);
-	}
-
-	private Object getEnabledPluginInstance(String pluginClassName)
-	{
-		try
-		{
-			final Class<?> clazz = Class.forName(pluginClassName);
-			for (Plugin plugin : pluginManager.getPlugins())
-			{
-				if (plugin == null)
-				{
-					continue;
-				}
-
-				if (!clazz.isInstance(plugin))
-				{
-					continue;
-				}
-
-				if (!pluginManager.isPluginEnabled(plugin))
-				{
-					return null;
-				}
-
-				return plugin;
-			}
-
-			return null;
-		}
-		catch (Exception e)
-		{
-			return null;
-		}
+		return contribution;
 	}
 
 	private NexLootTracker getOrCreateCurrentKill()
@@ -827,6 +674,7 @@ public class NexLootTrackerPlugin extends Plugin
 		currentKill = null;
 		pendingUniqueKills.clear();
 		finalizeDelayTicks = -1;
+		contributionTracker.reset();
 	}
 
 	private void setSplits(NexLootTracker kill)

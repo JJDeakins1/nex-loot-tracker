@@ -19,7 +19,7 @@ A RuneLite plugin that tracks Nex kills, personal loot, team unique drops, and s
 - Parses team unique broadcasts (`received a drop`) and MVP messages
 - Side panel with kills logged, kills since last drop, average kill contribution, filters, uniques table, due rate, split GP earned, regular drops, and split changer
 - Configurable default FFA and FFA cutoff
-- Kill contribution per kill (optional) — requires the built-in **DPS Counter** plugin to be enabled
+- Kill contribution per kill — tracked from Nex hitsplats during the fight (no other plugins required)
 
 ## Due rates
 
@@ -36,7 +36,7 @@ Think of it like a progress bar toward your next personal drop:
 
 ### How it is calculated
 
-1. **Each kill adds progress** based on your damage share that kill (from **DPS Counter**).
+1. **Each kill adds progress** based on your damage share that kill (tracked from Nex hitsplats).
 2. **MVP kills add +2%** on top of your damage share, matching how Nex awards MVP.
 3. **Your personal rate depends on team size and contribution.** Nex rolls uniques once per kill for the team (roughly **1/43** chance someone gets a unique in a full group). Your share of that roll is based on your contribution that kill — so fewer teammates means a larger share and faster Due progress. Equal damage examples (no MVP):
    - **5-man** (~20% each) → about **1/215** per kill for you
@@ -47,7 +47,7 @@ Think of it like a progress bar toward your next personal drop:
 5. **When you receive a personal drop**, 1.00 is subtracted from that item's Due. If you were at **1.20** when it dropped, you carry **0.20** into the next cycle instead of resetting to zero.
 6. **The Total row** tracks any unique, using the overall team roll rate (**1/43**) scaled by your contribution each kill.
 
-If DPS Counter is disabled or missing data for your kills, Due shows **`-`**.
+If no Nex damage was tracked for a kill, Due shows **`-`**.
 
 ### Kills Since Last Drop
 
@@ -55,7 +55,7 @@ This is separate from Due. It counts how many kills have passed since **anyone**
 
 ### Kill contribution
 
-Kill contribution is your damage percentage for that fight, read from **DPS Counter**. The average shown in the panel includes the **+2% MVP bonus** when you were MVP. Only kills with contribution data are included in Due and the average (respecting your active filters).
+Kill contribution is your damage percentage for that fight, tracked from hitsplats on Nex. The average shown in the panel includes the **+2% MVP bonus** when you were MVP. Only kills with contribution data are included in Due and the average (respecting your active filters).
 
 ## Data storage
 

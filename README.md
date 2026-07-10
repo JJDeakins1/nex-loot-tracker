@@ -4,9 +4,13 @@ A RuneLite plugin that tracks Nex kills, personal loot, team unique drops, and s
 
 ## Screenshots
 
-![Nex Loot Tracker side panel](docs/side-panel.png)
+<p align="center">
+  <img src="docs/side-panel.png" alt="Nex Loot Tracker side panel" width="300" />
+</p>
 
-![Regular drops and split changer](docs/splits-and-drops.png)
+<p align="center">
+  <img src="docs/splits-and-drops.png" alt="Regular drops and split changer" width="300" />
+</p>
 
 ## Features
 

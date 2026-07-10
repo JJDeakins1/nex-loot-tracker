@@ -30,16 +30,6 @@ public interface NexLootTrackerConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "lastXKills",
-		name = "Last X Kills",
-		description = "When the 'Last X Kills' filter is selected, this value is used as X"
-	)
-	default int lastXKills()
-	{
-		return 50;
-	}
-
-	@ConfigItem(
 		keyName = "showTitle",
 		name = "Show Title",
 		description = "Disable to hide the title in the side panel"

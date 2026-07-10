@@ -8,16 +8,17 @@ import net.runelite.api.gameval.ItemID;
 @Getter
 public enum NexUniques
 {
-	ANCIENT_HILT("Ancient hilt", ItemID.GODWARS_GODSWORD_HILT_ANCIENT),
-	NIHIL_HORN("Nihil horn", ItemID.NIHIL_HORN),
-	TORVA_HELM("Torva full helm (damaged)", ItemID.BROKEN_TORVA_HELM),
-	TORVA_BODY("Torva platebody (damaged)", ItemID.BROKEN_TORVA_CHEST),
-	TORVA_LEGS("Torva platelegs (damaged)", ItemID.BROKEN_TORVA_LEGS),
-	ZARYTE_VAMBRACES("Zaryte vambraces", ItemID.ZARYTE_VAMBRACES),
-	NEXLING("Nexling", ItemID.NEXPET);
+	ANCIENT_HILT("Ancient hilt", ItemID.GODWARS_GODSWORD_HILT_ANCIENT, 516),
+	NIHIL_HORN("Nihil horn", ItemID.NIHIL_HORN, 258),
+	TORVA_HELM("Torva full helm (damaged)", ItemID.BROKEN_TORVA_HELM, 258),
+	TORVA_BODY("Torva platebody (damaged)", ItemID.BROKEN_TORVA_CHEST, 258),
+	TORVA_LEGS("Torva platelegs (damaged)", ItemID.BROKEN_TORVA_LEGS, 258),
+	ZARYTE_VAMBRACES("Zaryte vambraces", ItemID.ZARYTE_VAMBRACES, 172),
+	NEXLING("Nexling", ItemID.NEXPET, 500);
 
 	private final String name;
 	private final int itemId;
+	private final int dropRateDenominator;
 
 	public static String normalizeDropItemName(String itemName)
 	{

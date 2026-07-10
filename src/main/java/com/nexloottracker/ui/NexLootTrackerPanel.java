@@ -1,5 +1,7 @@
 package com.nexloottracker.ui;
 
+import com.nexloottracker.DropRateCalculator;
+import com.nexloottracker.KillListFilter;
 import com.nexloottracker.NexLootTracker;
 import com.nexloottracker.NexLootTrackerConfig;
 import com.nexloottracker.NexLootTrackerItem;
@@ -43,6 +45,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.time.ZoneId;
 
 @Slf4j
 public class NexLootTrackerPanel extends PluginPanel
@@ -164,6 +167,8 @@ public class NexLootTrackerPanel extends PluginPanel
 		{
 			contentPanel.add(buildKillsLoggedPanel());
 			contentPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+			contentPanel.add(buildKillsSinceLastDropPanel());
+			contentPanel.add(Box.createRigidArea(new Dimension(0, 5)));
 			contentPanel.add(buildAverageKillContributionPanel());
 			contentPanel.add(Box.createRigidArea(new Dimension(0, 5)));
 		}
@@ -226,10 +231,18 @@ public class NexLootTrackerPanel extends PluginPanel
 		return buildStatRow("Kills Logged:", String.valueOf(distinct.size()));
 	}
 
+	private JPanel buildKillsSinceLastDropPanel()
+	{
+		final int killsSinceLastDrop = DropRateCalculator.getKillsSinceLastSeenUnique(getFilteredKillList());
+		return buildStatRow("Kills Since Last Drop:", String.valueOf(killsSinceLastDrop));
+	}
+
 	private JPanel buildAverageKillContributionPanel()
 	{
 		final ArrayList<NexLootTracker> distinct = getDistinctKills(getFilteredKillList());
-		final String label = teamSizeFilter + " Average Kill Contribution:";
+		final String label = "All Sizes".equals(teamSizeFilter)
+			? "Average Kill Contribution:"
+			: teamSizeFilter + " Average Kill Contribution:";
 		final String value = getAverageKillContributionText(distinct);
 		return buildStatRow(label, value);
 	}
@@ -260,25 +273,13 @@ public class NexLootTrackerPanel extends PluginPanel
 
 	private String getAverageKillContributionText(ArrayList<NexLootTracker> distinctKills)
 	{
-		double sum = 0.0;
-		int count = 0;
-
-		for (NexLootTracker kill : distinctKills)
-		{
-			if (kill.getKillContribution() == null)
-			{
-				continue;
-			}
-			sum += kill.getKillContribution();
-			count++;
-		}
-
-		if (count == 0)
+		Double average = DropRateCalculator.getAverageKillContribution(distinctKills);
+		if (average == null)
 		{
 			return "-";
 		}
 
-		return String.format(Locale.US, "%.2f%%", sum / count);
+		return String.format(Locale.US, "%.2f%%", average);
 	}
 
 	private JPanel buildFilterPanel()
@@ -300,13 +301,13 @@ public class NexLootTrackerPanel extends PluginPanel
 		c.gridy++;
 
 		JComboBox<String> dateChoices = comboBox(new String[]{
-			"All Time", "12 Hours", "Today", "3 Days", "Week", "Month", "3 Months", "Year", "X Kills"
+			"All Time", "12 Hours", "Today", "3 Days", "Week", "Month", "3 Months", "Year"
 		}, dateFilter, selected -> dateFilter = selected);
 
 		JComboBox<String> mvpChoices = comboBox(new String[]{"Both", "My MVP", "Not My MVP"}, mvpFilter, selected -> mvpFilter = selected);
 
 		JComboBox<String> teamChoices = comboBox(new String[]{
-			"All Sizes", "Solo", "Duo", "Trio", "4-Man", "5-Man", "10+"
+			"All Sizes", "Duo", "Trio", "4-Man", "5-Man", "10+"
 		}, teamSizeFilter, selected -> teamSizeFilter = selected);
 
 		JComboBox<String> splitChoices = comboBox(new String[]{"Both", "Split Only", "FFA Only"}, splitFilter, selected -> splitFilter = selected);
@@ -352,11 +353,11 @@ public class NexLootTrackerPanel extends PluginPanel
 		table.add(headerCell(""));
 		table.add(headerCell("Own"));
 		table.add(headerCell("Seen"));
-		table.add(headerCell("Dry"));
+		table.add(headerCell("Due"));
 
 		int totalOwn = 0;
 		int totalSeen = 0;
-		int dryStreak = getDryStreak();
+		String totalDue = getTotalDueText();
 
 		for (NexUniques unique : NEX_UNIQUES)
 		{
@@ -364,7 +365,7 @@ public class NexLootTrackerPanel extends PluginPanel
 			{
 				ArrayList<NexLootTracker> pets = filterPetReceivers();
 				ArrayList<NexLootTracker> ownPets = filterOwnPets(pets);
-				addUniqueRowCells(table, unique, ownPets.size(), pets.size(), -1);
+				addUniqueRowCells(table, unique, ownPets.size(), pets.size(), getDueText(unique));
 				totalOwn += ownPets.size();
 				totalSeen += pets.size();
 				continue;
@@ -372,7 +373,7 @@ public class NexLootTrackerPanel extends PluginPanel
 
 			ArrayList<NexLootTracker> seen = filterByUniqueName(unique.getName());
 			ArrayList<NexLootTracker> own = filterOwnDrops(seen);
-			addUniqueRowCells(table, unique, own.size(), seen.size(), -1);
+			addUniqueRowCells(table, unique, own.size(), seen.size(), getDueText(unique));
 			totalOwn += own.size();
 			totalSeen += seen.size();
 		}
@@ -380,7 +381,7 @@ public class NexLootTrackerPanel extends PluginPanel
 		table.add(totalCell("Total:", SwingConstants.LEFT));
 		table.add(totalCell(String.valueOf(totalOwn), SwingConstants.CENTER));
 		table.add(totalCell(String.valueOf(totalSeen), SwingConstants.CENTER));
-		table.add(totalCell(String.valueOf(dryStreak), SwingConstants.CENTER));
+		table.add(totalCell(totalDue, SwingConstants.CENTER));
 
 		wrapper.add(table);
 		return wrapper;
@@ -405,7 +406,7 @@ public class NexLootTrackerPanel extends PluginPanel
 		return label;
 	}
 
-	private void addUniqueRowCells(JPanel table, NexUniques unique, int own, int seen, int dry)
+	private void addUniqueRowCells(JPanel table, NexUniques unique, int own, int seen, String due)
 	{
 		AsyncBufferedImage image = itemManager.getImage(unique.getItemId(), 1, false);
 		JLabel icon = new JLabel();
@@ -421,18 +422,18 @@ public class NexLootTrackerPanel extends PluginPanel
 
 		JLabel ownLabel = centeredLabel(String.valueOf(own));
 		JLabel seenLabel = centeredLabel(String.valueOf(seen));
-		JLabel dryLabel = centeredLabel(dry >= 0 ? String.valueOf(dry) : "-");
+		JLabel dueLabel = centeredLabel(due);
 
 		MatteBorder border = new MatteBorder(0, 0, 1, 1, ColorScheme.LIGHT_GRAY_COLOR.darker());
 		icon.setBorder(border);
 		ownLabel.setBorder(border);
 		seenLabel.setBorder(border);
-		dryLabel.setBorder(new MatteBorder(0, 0, 1, 0, ColorScheme.LIGHT_GRAY_COLOR.darker()));
+		dueLabel.setBorder(new MatteBorder(0, 0, 1, 0, ColorScheme.LIGHT_GRAY_COLOR.darker()));
 
 		table.add(icon);
 		table.add(ownLabel);
 		table.add(seenLabel);
-		table.add(dryLabel);
+		table.add(dueLabel);
 	}
 
 	private JPanel buildSplitGpPanel()
@@ -631,9 +632,6 @@ public class NexLootTrackerPanel extends PluginPanel
 
 		switch (teamSizeFilter)
 		{
-			case "Solo":
-				filtered = filtered.stream().filter(kill -> kill.getTeamSize() == 1).collect(Collectors.toCollection(ArrayList::new));
-				break;
 			case "Duo":
 				filtered = filtered.stream().filter(kill -> kill.getTeamSize() == 2).collect(Collectors.toCollection(ArrayList::new));
 				break;
@@ -661,39 +659,12 @@ public class NexLootTrackerPanel extends PluginPanel
 				break;
 		}
 
-		long now = System.currentTimeMillis();
-		switch (dateFilter)
-		{
-			case "12 Hours":
-				return filterByDate(filtered, now - 43_200_000L);
-			case "Today":
-				return filterByDate(filtered, now - 86_400_000L);
-			case "3 Days":
-				return filterByDate(filtered, now - 259_200_000L);
-			case "Week":
-				return filterByDate(filtered, now - 604_800_000L);
-			case "Month":
-				return filterByDate(filtered, now - 2_629_746_000L);
-			case "3 Months":
-				return filterByDate(filtered, now - 7_889_400_000L);
-			case "Year":
-				return filterByDate(filtered, now - 31_536_000_000L);
-			case "X Kills":
-				ArrayList<NexLootTracker> distinct = getDistinctKills(filtered);
-				ArrayList<NexLootTracker> lastKills = new ArrayList<>(distinct.subList(
-					Math.max(distinct.size() - config.lastXKills(), 0), distinct.size()
-				));
-				return filtered.stream()
-					.filter(kill -> lastKills.stream().anyMatch(last -> last.getKillCountID().equals(kill.getKillCountID())))
-					.collect(Collectors.toCollection(ArrayList::new));
-			default:
-				return filtered;
-		}
-	}
-
-	private ArrayList<NexLootTracker> filterByDate(ArrayList<NexLootTracker> list, long since)
-	{
-		return list.stream().filter(kill -> kill.getDate() > since).collect(Collectors.toCollection(ArrayList::new));
+		return KillListFilter.filterByDate(
+			filtered,
+			dateFilter,
+			System.currentTimeMillis(),
+			ZoneId.systemDefault()
+		);
 	}
 
 	private ArrayList<NexLootTracker> getDistinctKills(ArrayList<NexLootTracker> list)
@@ -751,22 +722,24 @@ public class NexLootTrackerPanel extends PluginPanel
 			.collect(Collectors.toCollection(ArrayList::new));
 	}
 
-	private int getDryStreak()
+	private String getDueText(NexUniques unique)
 	{
-		ArrayList<NexLootTracker> distinct = getDistinctKills(new ArrayList<>(killList));
-		distinct.sort((a, b) -> Long.compare(b.getDate(), a.getDate()));
+		Double dueMultiplier = DropRateCalculator.getDueMultiplier(
+			getFilteredKillList(),
+			kill -> DropRateCalculator.isOwnUnique(kill, unique),
+			unique.getDropRateDenominator()
+		);
+		return DropRateCalculator.formatDueMultiplier(dueMultiplier);
+	}
 
-		int streak = 0;
-		for (NexLootTracker kill : distinct)
-		{
-			boolean hasUnique = !kill.getSpecialLoot().isEmpty() || !kill.getPetReceiver().isEmpty();
-			if (hasUnique)
-			{
-				break;
-			}
-			streak++;
-		}
-		return streak;
+	private String getTotalDueText()
+	{
+		Double dueMultiplier = DropRateCalculator.getDueMultiplier(
+			getFilteredKillList(),
+			DropRateCalculator::isAnyOwnUnique,
+			DropRateCalculator.ANY_UNIQUE_DENOMINATOR
+		);
+		return DropRateCalculator.formatDueMultiplier(dueMultiplier);
 	}
 
 	public JLabel textPanel(String text)

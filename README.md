@@ -6,9 +6,7 @@ A RuneLite plugin that tracks Nex kills, personal loot, team unique drops, and s
 
 <p align="center">
   <img src="docs/side-panel.png" alt="Nex Loot Tracker side panel" width="300" />
-</p>
-
-<p align="center">
+  &nbsp;&nbsp;
   <img src="docs/splits-and-drops.png" alt="Regular drops and split changer" width="300" />
 </p>
 
@@ -36,16 +34,16 @@ Think of it like a progress bar toward your next personal drop:
 
 ### How it is calculated
 
-1. **Each kill adds progress** based on your damage share that kill (tracked from Nex hitsplats).
-2. **MVP kills get a 10% boost** on your damage share (e.g. 20% becomes 22%), matching how Nex awards MVP.
-3. **Your personal rate depends on team size and contribution.** Nex rolls uniques once per kill for the team (roughly **1/43** chance someone gets a unique in a full group). Your share of that roll is based on your contribution that kill — so fewer teammates means a larger share and faster Due progress. Equal damage examples (no MVP):
+**Each kill adds progress** based on your damage share that kill (tracked from Nex hitsplats).
+**MVP kills get a 10% boost** on your damage share (e.g. 20% becomes 22%), matching how Nex awards MVP.
+**Your personal rate depends on team size and contribution.** Nex rolls uniques once per kill for the team (roughly **1/43** chance someone gets a unique in a full group). Your share of that roll is based on your contribution that kill — so fewer teammates means a larger share and faster Due progress. Equal damage examples (no MVP):
    - **5-man** (~20% each) → about **1/215** per kill for you
    - **4-man** (~25% each) → about **1/172**
    - **3-man** (~33% each) → about **1/129**
    - **Duo** (~50% each) → about **1/86**
-4. **Each item has its own team per-kill rate** from the OSRS Wiki (e.g. Zaryte vambraces 1/172, Ancient hilt 1/516). Your Due for that item scales the same way — by your contribution each kill.
-5. **When you receive a personal drop**, 1.00 is subtracted from that item's Due. If you were at **1.20** when it dropped, you carry **0.20** into the next cycle instead of resetting to zero.
-6. **The Total row** tracks any unique, using the overall team roll rate (**1/43**) scaled by your contribution each kill.
+
+**When you receive a personal drop**, 1.00 is subtracted from that item's Due. If you were at **1.20** when it dropped, you carry **0.20** into the next cycle instead of resetting to zero.
+**The Total row** tracks any unique, using the overall team roll rate (**1/43**) scaled by your contribution each kill.
 
 If no Nex damage was tracked for a kill, Due shows **`-`**.
 
@@ -57,22 +55,4 @@ This is separate from Due. It counts how many kills have passed since **anyone**
 
 Kill contribution is your damage percentage for that fight, tracked from hitsplats on Nex. The average shown in the panel includes the **10% MVP boost** when you were MVP. Only kills with contribution data are included in Due and the average (respecting your active filters).
 
-## Data storage
 
-Data is stored at:
-
-```
-~/.runelite/nex-loot-tracker/<username>/nex_loot_data.log
-```
-
-Each line is one JSON object representing a kill or unique drop entry.
-
-## Tracked uniques
-
-- Ancient hilt
-- Nihil horn
-- Torva full helm (damaged)
-- Torva platebody (damaged)
-- Torva platelegs (damaged)
-- Zaryte vambraces
-- Nexling (pet)

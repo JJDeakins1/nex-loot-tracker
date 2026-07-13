@@ -31,6 +31,8 @@ import java.text.NumberFormat;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.TextStyle;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -82,6 +84,7 @@ public class SplitChanger extends JPanel
 
 		JLabel date = panel.textPanel(getDateText());
 		date.setForeground(ColorScheme.LIGHT_GRAY_COLOR.darker());
+		date.setToolTipText(getAbsoluteDateText());
 
 		iconWrapper.add(date);
 		iconWrapper.add(Box.createRigidArea(new Dimension(0, 10)));
@@ -257,9 +260,14 @@ public class SplitChanger extends JPanel
 		return panel.resizeImage(before, 1.75, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
 	}
 
+	private LocalDate getKillDate()
+	{
+		return Instant.ofEpochMilli(kill.getDate()).atZone(ZoneId.systemDefault()).toLocalDate();
+	}
+
 	private String getDateText()
 	{
-		LocalDate date = Instant.ofEpochMilli(kill.getDate()).atZone(ZoneId.systemDefault()).toLocalDate();
+		LocalDate date = getKillDate();
 		LocalDate today = LocalDate.now();
 		LocalDate yesterday = today.minusDays(1);
 		LocalDate lastWeek = today.minusDays(7);
@@ -287,6 +295,33 @@ public class SplitChanger extends JPanel
 			return "last year";
 		}
 		return "a long time ago";
+	}
+
+	private String getAbsoluteDateText()
+	{
+		LocalDate date = getKillDate();
+		int day = date.getDayOfMonth();
+		String month = date.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
+		return day + getOrdinalSuffix(day) + " " + month + " " + date.getYear();
+	}
+
+	private static String getOrdinalSuffix(int day)
+	{
+		if (day >= 11 && day <= 13)
+		{
+			return "th";
+		}
+		switch (day % 10)
+		{
+			case 1:
+				return "st";
+			case 2:
+				return "nd";
+			case 3:
+				return "rd";
+			default:
+				return "th";
+		}
 	}
 
 	private static final NavigableMap<Long, String> SUFFIXES = new TreeMap<>();

@@ -28,10 +28,14 @@ import java.awt.GridLayout;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import java.text.NumberFormat;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -270,9 +274,10 @@ public class SplitChanger extends JPanel
 		LocalDate date = getKillDate();
 		LocalDate today = LocalDate.now();
 		LocalDate yesterday = today.minusDays(1);
-		LocalDate lastWeek = today.minusDays(7);
-		LocalDate lastMonth = today.minusDays(30);
-		LocalDate lastYear = today.minusDays(365);
+		LocalDate startOfThisWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+		LocalDate startOfLastWeek = startOfThisWeek.minusWeeks(1);
+		YearMonth currentMonth = YearMonth.from(today);
+		YearMonth dropMonth = YearMonth.from(date);
 
 		if (date.equals(today))
 		{
@@ -282,19 +287,23 @@ public class SplitChanger extends JPanel
 		{
 			return "yesterday";
 		}
-		if (date.isAfter(lastWeek))
+		if (!date.isBefore(startOfThisWeek))
+		{
+			return "this week";
+		}
+		if (!date.isBefore(startOfLastWeek))
 		{
 			return "last week";
 		}
-		if (date.isAfter(lastMonth))
+		if (dropMonth.equals(currentMonth))
+		{
+			return "this month";
+		}
+		if (dropMonth.equals(currentMonth.minusMonths(1)))
 		{
 			return "last month";
 		}
-		if (date.isAfter(lastYear))
-		{
-			return "last year";
-		}
-		return "a long time ago";
+		return date.format(DateTimeFormatter.ofPattern("dd/MM/yy"));
 	}
 
 	private String getAbsoluteDateText()

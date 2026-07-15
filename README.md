@@ -21,7 +21,7 @@ A RuneLite plugin that tracks Nex kills, personal loot, team unique drops, and s
 
 ## Due rates
 
-The **Due** column answers a simple question: *based on how much you have contributed at Nex, are you ahead or behind on uniques?*
+The **Due** column answers a simple question: *based on how much damage you have contributed at Nex, are you ahead or behind on uniques?*
 
 Think of it like a progress bar toward your next personal drop:
 

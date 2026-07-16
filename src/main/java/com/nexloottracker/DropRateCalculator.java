@@ -126,6 +126,52 @@ public final class DropRateCalculator
 	}
 
 	/**
+	 * Average fight duration in milliseconds across kills that have {@code killDurationMs} set.
+	 * Uses the same distinct-kill list callers already apply for Average Kill Contribution.
+	 */
+	public static Long getAverageKillDurationMs(List<NexLootTracker> kills)
+	{
+		long sum = 0L;
+		int count = 0;
+
+		for (NexLootTracker kill : kills)
+		{
+			Long durationMs = kill.getKillDurationMs();
+			if (durationMs == null || durationMs < 0)
+			{
+				continue;
+			}
+			sum += durationMs;
+			count++;
+		}
+
+		if (count == 0)
+		{
+			return null;
+		}
+
+		return Math.round((double) sum / count);
+	}
+
+	/**
+	 * Formats a duration for display like the in-game chat timer ({@code 4:08}, or {@code 1:04:08}).
+	 */
+	public static String formatKillDuration(long durationMs)
+	{
+		long totalSeconds = Math.max(0L, Math.round(durationMs / 1000.0));
+		long hours = totalSeconds / 3600;
+		long minutes = (totalSeconds % 3600) / 60;
+		long seconds = totalSeconds % 60;
+
+		if (hours > 0)
+		{
+			return String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds);
+		}
+
+		return String.format(Locale.US, "%d:%02d", minutes, seconds);
+	}
+
+	/**
 	 * Returns how "due" a drop is relative to expected rate, walking kills in chronological order.
 	 * Each kill with contribution adds {@code contribution% / dropRateDenominator} toward 1.0x.
 	 * When the player receives a matching drop, 1.0 is subtracted so overdue progress carries over

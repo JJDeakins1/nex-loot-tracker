@@ -171,6 +171,41 @@ public class DropRateCalculatorTest
 		return kill;
 	}
 
+	private static NexLootTracker killWithDuration(long date, Long durationMs)
+	{
+		NexLootTracker kill = killWithDate(date, "", "");
+		kill.setKillDurationMs(durationMs);
+		return kill;
+	}
+
+	@Test
+	public void getAverageKillDurationMsIgnoresMissingDurations()
+	{
+		ArrayList<NexLootTracker> kills = new ArrayList<>();
+		kills.add(killWithDuration(1, 248_000L)); // 4:08
+		kills.add(killWithDuration(2, null));
+		kills.add(killWithDuration(3, 91_000L)); // 1:31
+
+		assertEquals(Long.valueOf(169_500L), DropRateCalculator.getAverageKillDurationMs(kills));
+	}
+
+	@Test
+	public void getAverageKillDurationMsReturnsNullWhenNoData()
+	{
+		ArrayList<NexLootTracker> kills = new ArrayList<>();
+		kills.add(killWithDuration(1, null));
+
+		assertNull(DropRateCalculator.getAverageKillDurationMs(kills));
+	}
+
+	@Test
+	public void formatKillDurationMatchesChatStyle()
+	{
+		assertEquals("4:08", DropRateCalculator.formatKillDuration(248_000L));
+		assertEquals("1:31", DropRateCalculator.formatKillDuration(91_000L));
+		assertEquals("1:04:08", DropRateCalculator.formatKillDuration(3_848_000L));
+	}
+
 	private static NexLootTracker ownUniqueKill(long date, NexUniques unique, boolean inOwnName)
 	{
 		NexLootTracker kill = killWithDate(date, unique.getName(), "");

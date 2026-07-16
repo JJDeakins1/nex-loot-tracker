@@ -50,6 +50,16 @@ public interface NexLootTrackerConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "showAverageKillTime",
+		name = "Show Average Kill Time",
+		description = "Enable to show average fight duration under Average Kill Contribution"
+	)
+	default boolean showAverageKillTime()
+	{
+		return false;
+	}
+
+	@ConfigItem(
 		keyName = "showFilters",
 		name = "Show Filters",
 		description = "Disable to hide the filter panel"

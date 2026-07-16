@@ -171,6 +171,11 @@ public class NexLootTrackerPanel extends PluginPanel
 			contentPanel.add(Box.createRigidArea(new Dimension(0, 5)));
 			contentPanel.add(buildAverageKillContributionPanel());
 			contentPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+			if (config.showAverageKillTime())
+			{
+				contentPanel.add(buildAverageKillTimePanel());
+				contentPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+			}
 		}
 
 		if (config.showUniquesTable())
@@ -242,15 +247,24 @@ public class NexLootTrackerPanel extends PluginPanel
 		final ArrayList<NexLootTracker> distinct = getDistinctKills(getFilteredKillList());
 		final String label = "All Sizes".equals(teamSizeFilter)
 			? "Average Kill Contribution:"
-			: teamSizeFilter + " Average Kill Contribution:";
+			: teamSizeFilter + " Avg Kill Contribution:";
 		final String value = getAverageKillContributionText(distinct);
+		return buildStatRow(label, value);
+	}
+
+	private JPanel buildAverageKillTimePanel()
+	{
+		final ArrayList<NexLootTracker> distinct = getDistinctKills(getFilteredKillList());
+		final String label = "All Sizes".equals(teamSizeFilter)
+			? "Average Kill Time:"
+			: teamSizeFilter + " Avg Kill Time:";
+		final String value = getAverageKillTimeText(distinct);
 		return buildStatRow(label, value);
 	}
 
 	private JPanel buildStatRow(String labelText, String valueText)
 	{
-		JPanel wrapper = new JPanel();
-		wrapper.setLayout(new BoxLayout(wrapper, BoxLayout.X_AXIS));
+		JPanel wrapper = new JPanel(new BorderLayout(6, 0));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR.darker());
 		wrapper.setBorder(new EmptyBorder(5, 10, 5, 10));
 
@@ -260,13 +274,9 @@ public class NexLootTrackerPanel extends PluginPanel
 		JLabel value = textPanel(valueText);
 		value.setHorizontalAlignment(SwingConstants.RIGHT);
 		value.setForeground(Color.LIGHT_GRAY);
-		value.setPreferredSize(new Dimension(52, value.getPreferredSize().height));
-		value.setMinimumSize(value.getPreferredSize());
-		value.setMaximumSize(value.getPreferredSize());
 
-		wrapper.add(label);
-		wrapper.add(Box.createHorizontalGlue());
-		wrapper.add(value);
+		wrapper.add(label, BorderLayout.CENTER);
+		wrapper.add(value, BorderLayout.EAST);
 
 		return wrapper;
 	}
@@ -280,6 +290,17 @@ public class NexLootTrackerPanel extends PluginPanel
 		}
 
 		return String.format(Locale.US, "%.2f%%", average);
+	}
+
+	private String getAverageKillTimeText(ArrayList<NexLootTracker> distinctKills)
+	{
+		Long averageMs = DropRateCalculator.getAverageKillDurationMs(distinctKills);
+		if (averageMs == null)
+		{
+			return "-";
+		}
+
+		return DropRateCalculator.formatKillDuration(averageMs);
 	}
 
 	private JPanel buildFilterPanel()

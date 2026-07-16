@@ -154,6 +154,33 @@ public class DropRateCalculatorTest
 		assertEquals(4, sinceLastOwn.get(0).getDate());
 	}
 
+	@Test
+	public void getPersonalDryCountUsesAnyOwnUnique()
+	{
+		ArrayList<NexLootTracker> kills = new ArrayList<>();
+		kills.add(ownUniqueKill(1, NexUniques.NIHIL_HORN, true));
+		kills.add(killWithDate(2, "Torva full helm (damaged)", "Teammate"));
+		kills.add(killWithDate(3, "", ""));
+		kills.add(killWithDate(4, "", ""));
+
+		assertEquals(3, DropRateCalculator.getPersonalDryCount(kills));
+		assertEquals(2, DropRateCalculator.getKillsSinceLastSeenUnique(kills));
+		assertEquals(NexUniques.NIHIL_HORN.getName(), DropRateCalculator.getLastOwnUniqueName(kills));
+	}
+
+	@Test
+	public void getDryStreakStatsIncludesLastPersonalItem()
+	{
+		ArrayList<NexLootTracker> kills = new ArrayList<>();
+		kills.add(ownUniqueKill(1, NexUniques.ANCIENT_HILT, true));
+		kills.add(killWithDate(2, "", ""));
+
+		DryStreakStats stats = DropRateCalculator.getDryStreakStats(kills);
+		assertEquals(1, stats.getPersonalDry());
+		assertEquals(1, stats.getTeamDry());
+		assertEquals(NexUniques.ANCIENT_HILT.getName(), stats.getLastPersonalItem());
+	}
+
 	private static NexLootTracker killWithDate(long date, String specialLoot, String petReceiver)
 	{
 		NexLootTracker kill = new NexLootTracker();

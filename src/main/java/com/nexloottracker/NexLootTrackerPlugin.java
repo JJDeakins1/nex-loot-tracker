@@ -8,6 +8,7 @@ import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.ItemComposition;
+import net.runelite.api.MessageNode;
 import net.runelite.api.NPC;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.Player;
@@ -16,6 +17,11 @@ import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.NpcDespawned;
+import net.runelite.client.callback.ClientThread;
+import net.runelite.client.chat.ChatColorType;
+import net.runelite.client.chat.ChatCommandManager;
+import net.runelite.client.chat.ChatMessageBuilder;
+import net.runelite.client.events.ChatInput;
 import net.runelite.client.events.NpcLootReceived;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.RuneScapeProfileType;
@@ -33,13 +39,16 @@ import net.runelite.client.util.Text;
 
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
+import java.awt.Color;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,6 +58,12 @@ import java.util.regex.Pattern;
 )
 public class NexLootTrackerPlugin extends Plugin
 {
+	private static final String NEX_DRY_COMMAND = "!nexdry";
+	private static final String NEX_DRY_STREAK_COMMAND = "!nexdrystreak";
+	private static final String NEX_LAST_COMMAND = "!nexlast";
+	private static final String NEX_LAST_ITEM_COMMAND = "!nexlastitem";
+	private static final Color NEX_DRY_COLOR = new Color(128, 0, 128);
+
 	private static final int NEX_REGION_ID = 11603;
 	private static final Set<Integer> NEX_REGION_IDS = new HashSet<>(Arrays.asList(
 		11601,
@@ -100,6 +115,18 @@ public class NexLootTrackerPlugin extends Plugin
 	@Inject
 	private PartyService partyService;
 
+	@Inject
+	private ChatCommandManager chatCommandManager;
+
+	@Inject
+	private ClientThread clientThread;
+
+	@Inject
+	private ScheduledExecutorService executor;
+
+	@Inject
+	private NexChatClient nexChatClient;
+
 	private final NexKillContributionTracker contributionTracker = new NexKillContributionTracker();
 
 	private NexLootTrackerPanel panel;
@@ -131,6 +158,7 @@ public class NexLootTrackerPlugin extends Plugin
 			.build();
 
 		clientToolbar.addNavigation(navButton);
+		registerChatCommands();
 
 		refreshKillListFromDisk();
 	}
@@ -138,6 +166,7 @@ public class NexLootTrackerPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		unregisterChatCommands();
 		clientToolbar.removeNavigation(navButton);
 		resetCurrentKill();
 	}
@@ -884,5 +913,159 @@ public class NexLootTrackerPlugin extends Plugin
 		}
 
 		return Text.toJagexName(client.getLocalPlayer().getName());
+	}
+
+	private void registerChatCommands()
+	{
+		chatCommandManager.registerCommandAsync(NEX_DRY_COMMAND, this::renderDryStreak, this::submitDryStreak);
+		chatCommandManager.registerCommandAsync(NEX_DRY_STREAK_COMMAND, this::renderDryStreak, this::submitDryStreak);
+		chatCommandManager.registerCommandAsync(NEX_LAST_COMMAND, this::renderLastItem, this::submitDryStreak);
+		chatCommandManager.registerCommandAsync(NEX_LAST_ITEM_COMMAND, this::renderLastItem, this::submitDryStreak);
+	}
+
+	private void unregisterChatCommands()
+	{
+		chatCommandManager.unregisterCommand(NEX_DRY_COMMAND);
+		chatCommandManager.unregisterCommand(NEX_DRY_STREAK_COMMAND);
+		chatCommandManager.unregisterCommand(NEX_LAST_COMMAND);
+		chatCommandManager.unregisterCommand(NEX_LAST_ITEM_COMMAND);
+	}
+
+	private boolean submitDryStreak(ChatInput chatInput, String value)
+	{
+		final String playerName = getLocalPlayerName();
+		if (playerName.isEmpty())
+		{
+			return false;
+		}
+
+		final DryStreakStats stats = getLocalDryStreakStats();
+		if (stats == null)
+		{
+			return false;
+		}
+
+		executor.execute(() ->
+		{
+			try
+			{
+				nexChatClient.submitDryStreak(playerName, stats);
+			}
+			catch (Exception ex)
+			{
+				log.warn("Unable to submit Nex dry streak", ex);
+			}
+			finally
+			{
+				chatInput.resume();
+			}
+		});
+
+		return true;
+	}
+
+	private void renderDryStreak(ChatMessage chatMessage, String message)
+	{
+		DryStreakStats stats = lookupDryStreak(chatMessage);
+		if (stats == null)
+		{
+			return;
+		}
+
+		ChatMessageBuilder builder = new ChatMessageBuilder()
+			.append(NEX_DRY_COLOR, "Nex Dry Streak")
+			.append(ChatColorType.HIGHLIGHT)
+			.append(" - Personal: ")
+			.append(Color.RED, Integer.toString(stats.getPersonalDry()))
+			.append(ChatColorType.HIGHLIGHT)
+			.append(" / Team: ")
+			.append(Color.RED, Integer.toString(stats.getTeamDry()));
+
+		if (stats.getLastPersonalItem() != null && !stats.getLastPersonalItem().isEmpty())
+		{
+			builder.append(ChatColorType.HIGHLIGHT)
+				.append(" (Last: ")
+				.append(Color.RED, stats.getLastPersonalItem())
+				.append(ChatColorType.HIGHLIGHT)
+				.append(")");
+		}
+
+		setChatMessage(chatMessage, builder.build());
+	}
+
+	private void renderLastItem(ChatMessage chatMessage, String message)
+	{
+		DryStreakStats stats = lookupDryStreak(chatMessage);
+		if (stats == null)
+		{
+			return;
+		}
+
+		String lastItem = stats.getLastPersonalItem();
+		if (lastItem == null || lastItem.isEmpty())
+		{
+			lastItem = "n/a";
+		}
+
+		String rendered = new ChatMessageBuilder()
+			.append(NEX_DRY_COLOR, "Nex Last Item: ")
+			.append(Color.RED, lastItem)
+			.build();
+
+		setChatMessage(chatMessage, rendered);
+	}
+
+	private DryStreakStats lookupDryStreak(ChatMessage chatMessage)
+	{
+		final String player;
+		if (chatMessage.getType() == ChatMessageType.PRIVATECHATOUT)
+		{
+			player = getLocalPlayerName();
+		}
+		else
+		{
+			player = Text.sanitize(chatMessage.getName());
+		}
+
+		if (player == null || player.isEmpty())
+		{
+			return null;
+		}
+
+		// Prefer local logs for your own command so the render matches the side panel.
+		if (player.equalsIgnoreCase(getLocalPlayerName()))
+		{
+			return getLocalDryStreakStats();
+		}
+
+		try
+		{
+			return nexChatClient.getDryStreak(player);
+		}
+		catch (IOException ex)
+		{
+			log.debug("Unable to lookup Nex dry streak for {}", player, ex);
+			return null;
+		}
+	}
+
+	private DryStreakStats getLocalDryStreakStats()
+	{
+		if (!fileReadWriter.ensureProfile(client.getUsername(), client.getAccountHash()))
+		{
+			return null;
+		}
+
+		return DropRateCalculator.getDryStreakStats(fileReadWriter.readFromFile());
+	}
+
+	private void setChatMessage(ChatMessage chatMessage, String rendered)
+	{
+		final MessageNode messageNode = chatMessage.getMessageNode();
+		clientThread.invokeLater(() ->
+		{
+			messageNode.setRuneLiteFormatMessage(rendered);
+			client.refreshChat();
+		});
 	}
 }

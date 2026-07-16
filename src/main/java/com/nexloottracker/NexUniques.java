@@ -81,13 +81,18 @@ public enum NexUniques
 
 	public static boolean isUniqueItemId(int itemId)
 	{
+		return fromItemId(itemId) != null;
+	}
+
+	public static NexUniques fromItemId(int itemId)
+	{
 		for (NexUniques unique : values())
 		{
 			if (unique.getItemId() == itemId)
 			{
-				return true;
+				return unique;
 			}
 		}
-		return false;
+		return null;
 	}
 }

@@ -72,6 +72,50 @@ public final class DropRateCalculator
 		return streak;
 	}
 
+	/**
+	 * Kills since the local player's last personal unique (including Nexling).
+	 * Computed from saved kill logs — same source of truth as the side panel.
+	 */
+	public static int getPersonalDryCount(List<NexLootTracker> kills)
+	{
+		return getKillsSinceLastOwnDrop(kills, DropRateCalculator::isAnyOwnUnique).size();
+	}
+
+	/**
+	 * Most recent personal unique name from saved logs, or empty when none exist.
+	 */
+	public static String getLastOwnUniqueName(List<NexLootTracker> kills)
+	{
+		ArrayList<NexLootTracker> distinct = getDistinctKillsSortedByDate(kills);
+		distinct.sort(Comparator.comparingLong(NexLootTracker::getDate).reversed());
+
+		for (NexLootTracker kill : distinct)
+		{
+			if (!isAnyOwnUnique(kill))
+			{
+				continue;
+			}
+
+			if (kill.isPetInMyName())
+			{
+				return NexUniques.NEXLING.getName();
+			}
+
+			return kill.getSpecialLoot();
+		}
+
+		return "";
+	}
+
+	public static DryStreakStats getDryStreakStats(List<NexLootTracker> kills)
+	{
+		return new DryStreakStats(
+			getPersonalDryCount(kills),
+			getKillsSinceLastSeenUnique(kills),
+			getLastOwnUniqueName(kills)
+		);
+	}
+
 	public static ArrayList<NexLootTracker> getKillsSinceLastOwnDrop(
 		List<NexLootTracker> kills,
 		Predicate<NexLootTracker> isOwnDrop

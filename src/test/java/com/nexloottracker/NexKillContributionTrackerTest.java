@@ -1,6 +1,5 @@
 package com.nexloottracker;
 
-import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.Hitsplat;
 import net.runelite.api.NPC;
@@ -15,9 +14,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -57,39 +54,6 @@ public class NexKillContributionTrackerTest
 		tracker.reset();
 
 		assertNull(tracker.getContributionPercent());
-	}
-
-	@Test
-	public void killDurationIsNullUntilFightEnds()
-	{
-		NexKillContributionTracker tracker = new NexKillContributionTracker();
-		tracker.onHitsplatApplied(hitsplat(NpcID.NEX, 50, true, false), client, Collections.singleton(NpcID.NEX));
-
-		assertNull(tracker.getKillDurationMs());
-
-		tracker.markFightEnded();
-		assertNotNull(tracker.getKillDurationMs());
-		assertTrue(tracker.getKillDurationMs() >= 0);
-	}
-
-	@Test
-	public void killDurationRemainsNullWithoutHits()
-	{
-		NexKillContributionTracker tracker = new NexKillContributionTracker();
-		tracker.markFightEnded();
-
-		assertNull(tracker.getKillDurationMs());
-	}
-
-	@Test
-	public void resetClearsKillDuration()
-	{
-		NexKillContributionTracker tracker = new NexKillContributionTracker();
-		tracker.onHitsplatApplied(hitsplat(NpcID.NEX, 50, true, false), client, Collections.singleton(NpcID.NEX));
-		tracker.markFightEnded();
-		tracker.reset();
-
-		assertNull(tracker.getKillDurationMs());
 	}
 
 	private HitsplatApplied hitsplat(int npcId, int amount, boolean mine, boolean others)

@@ -44,8 +44,8 @@ public class NexLootTracker
 	long date = System.currentTimeMillis();
 
 	/**
-	 * Fight duration in milliseconds, from the first tracked Nex hitsplat to Nex death.
-	 * Null when duration could not be measured (e.g. no damage seen).
+	 * Fight duration in milliseconds, parsed from the chat "Fight duration: m:ss" message.
+	 * Null when the duration message was not seen for this kill.
 	 */
 	Long killDurationMs = null;
 }

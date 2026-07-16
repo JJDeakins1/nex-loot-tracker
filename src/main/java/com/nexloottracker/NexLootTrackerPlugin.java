@@ -72,6 +72,10 @@ public class NexLootTrackerPlugin extends Plugin
 	));
 
 	private static final Pattern KILL_COUNT_PATTERN = Pattern.compile("Your Nex kill count is:?\\s*(\\d+)\\.");
+	private static final Pattern FIGHT_DURATION_PATTERN = Pattern.compile(
+		"Fight duration:\\s*(\\d+(?::\\d{2}){1,2})",
+		Pattern.CASE_INSENSITIVE
+	);
 	private static final Pattern UNIQUE_DROP_PATTERN = Pattern.compile("(.+?) (?:has )?received a drop: (.+)");
 	private static final Pattern MVP_SELF_PATTERN = Pattern.compile("^You were the MVP for this fight!\\.?$");
 	private static final Pattern MVP_NAMED_PATTERN = Pattern.compile("^The MVP for this fight was:?\\s*(.+?)\\.?$");
@@ -298,6 +302,19 @@ public class NexLootTrackerPlugin extends Plugin
 				kill.getCompletionCount(), kill.getTeamSize(), FINALIZE_DELAY_TICKS);
 			snapshotKillContribution(kill);
 			scheduleFinalize();
+			return;
+		}
+
+		matcher = FIGHT_DURATION_PATTERN.matcher(message);
+		if (matcher.find())
+		{
+			final Long durationMs = parseFightDurationMs(matcher.group(1));
+			if (durationMs != null)
+			{
+				final NexLootTracker kill = getOrCreateCurrentKill();
+				kill.setKillDurationMs(durationMs);
+				log.info("Nex fight duration from chat: {} -> {} ms", matcher.group(1), durationMs);
+			}
 			return;
 		}
 
@@ -541,10 +558,7 @@ public class NexLootTrackerPlugin extends Plugin
 			return;
 		}
 
-		final NexLootTracker kill = getOrCreateCurrentKill();
-		contributionTracker.markFightEnded();
-		snapshotKillContribution(kill);
-		snapshotKillDuration(kill);
+		snapshotKillContribution(getOrCreateCurrentKill());
 	}
 
 	private void scheduleFinalize()
@@ -582,9 +596,7 @@ public class NexLootTrackerPlugin extends Plugin
 		}
 
 		currentKill.setKillComplete(true);
-		contributionTracker.markFightEnded();
 		snapshotKillContribution(currentKill);
-		snapshotKillDuration(currentKill);
 		Double contribution = currentKill.getKillContribution();
 		log.info("Nex kill contribution: {} (local={}, total={})",
 			contribution,
@@ -598,7 +610,6 @@ public class NexLootTrackerPlugin extends Plugin
 		{
 			syncKillMetadata(pending, currentKill);
 			pending.setKillContribution(contribution);
-			pending.setKillDurationMs(currentKill.getKillDurationMs());
 			fileReadWriter.writeToFile(pending);
 			final NexLootTracker writtenPending = pending;
 			SwingUtilities.invokeLater(() -> panel.addKill(writtenPending, false));
@@ -625,17 +636,34 @@ public class NexLootTrackerPlugin extends Plugin
 			contributionTracker.getTotalDamage());
 	}
 
-	private void snapshotKillDuration(NexLootTracker kill)
+	/**
+	 * Parses chat durations like {@code 4:08} or {@code 1:04:08} into milliseconds.
+	 */
+	static Long parseFightDurationMs(String duration)
 	{
-		if (kill == null)
+		if (duration == null || duration.isEmpty())
 		{
-			return;
+			return null;
 		}
 
-		final Long durationMs = contributionTracker.getKillDurationMs();
-		if (durationMs != null)
+		final String[] parts = duration.split(":");
+		if (parts.length < 2 || parts.length > 3)
 		{
-			kill.setKillDurationMs(durationMs);
+			return null;
+		}
+
+		try
+		{
+			long totalSeconds = 0;
+			for (String part : parts)
+			{
+				totalSeconds = totalSeconds * 60 + Integer.parseInt(part);
+			}
+			return totalSeconds * 1000L;
+		}
+		catch (NumberFormatException e)
+		{
+			return null;
 		}
 	}
 
@@ -785,6 +813,7 @@ public class NexLootTrackerPlugin extends Plugin
 	private boolean isTrackedNexChatMessage(String message)
 	{
 		return KILL_COUNT_PATTERN.matcher(message).find()
+			|| FIGHT_DURATION_PATTERN.matcher(message).find()
 			|| MVP_SELF_PATTERN.matcher(message).matches()
 			|| MVP_NAMED_PATTERN.matcher(message).matches()
 			|| MVP_LEGACY_PATTERN.matcher(message).matches()

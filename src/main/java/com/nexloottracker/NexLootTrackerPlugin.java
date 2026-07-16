@@ -495,6 +495,7 @@ public class NexLootTrackerPlugin extends Plugin
 		target.setMvp(source.getMvp());
 		target.setMvpInOwnName(source.isMvpInOwnName());
 		target.setDate(source.getDate());
+		target.setKillDurationMs(source.getKillDurationMs());
 	}
 
 	private void handlePetDrop(String receiver, String playerName)
@@ -540,7 +541,10 @@ public class NexLootTrackerPlugin extends Plugin
 			return;
 		}
 
-		snapshotKillContribution(getOrCreateCurrentKill());
+		final NexLootTracker kill = getOrCreateCurrentKill();
+		contributionTracker.markFightEnded();
+		snapshotKillContribution(kill);
+		snapshotKillDuration(kill);
 	}
 
 	private void scheduleFinalize()
@@ -578,12 +582,15 @@ public class NexLootTrackerPlugin extends Plugin
 		}
 
 		currentKill.setKillComplete(true);
+		contributionTracker.markFightEnded();
 		snapshotKillContribution(currentKill);
+		snapshotKillDuration(currentKill);
 		Double contribution = currentKill.getKillContribution();
 		log.info("Nex kill contribution: {} (local={}, total={})",
 			contribution,
 			contributionTracker.getLocalDamage(),
 			contributionTracker.getTotalDamage());
+		log.info("Nex kill duration: {} ms", currentKill.getKillDurationMs());
 
 		fileReadWriter.ensureProfile(client.getUsername(), client.getAccountHash());
 
@@ -591,6 +598,7 @@ public class NexLootTrackerPlugin extends Plugin
 		{
 			syncKillMetadata(pending, currentKill);
 			pending.setKillContribution(contribution);
+			pending.setKillDurationMs(currentKill.getKillDurationMs());
 			fileReadWriter.writeToFile(pending);
 			final NexLootTracker writtenPending = pending;
 			SwingUtilities.invokeLater(() -> panel.addKill(writtenPending, false));
@@ -615,6 +623,20 @@ public class NexLootTrackerPlugin extends Plugin
 			contribution,
 			contributionTracker.getLocalDamage(),
 			contributionTracker.getTotalDamage());
+	}
+
+	private void snapshotKillDuration(NexLootTracker kill)
+	{
+		if (kill == null)
+		{
+			return;
+		}
+
+		final Long durationMs = contributionTracker.getKillDurationMs();
+		if (durationMs != null)
+		{
+			kill.setKillDurationMs(durationMs);
+		}
 	}
 
 	private Double getKillContributionPercent()
@@ -666,6 +688,7 @@ public class NexLootTrackerPlugin extends Plugin
 		copy.setLootList(new ArrayList<>(source.getLootList()));
 		copy.setKillCountID(source.getKillCountID());
 		copy.setDate(source.getDate());
+		copy.setKillDurationMs(source.getKillDurationMs());
 		return copy;
 	}
 

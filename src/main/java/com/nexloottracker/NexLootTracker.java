@@ -42,4 +42,10 @@ public class NexLootTracker
 	String uniqueID = UUID.randomUUID().toString();
 	String killCountID = UUID.randomUUID().toString();
 	long date = System.currentTimeMillis();
+
+	/**
+	 * Fight duration in milliseconds, from the first tracked Nex hitsplat to Nex death.
+	 * Null when duration could not be measured (e.g. no damage seen).
+	 */
+	Long killDurationMs = null;
 }

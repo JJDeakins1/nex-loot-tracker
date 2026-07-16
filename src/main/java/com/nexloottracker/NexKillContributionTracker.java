@@ -17,11 +17,15 @@ public class NexKillContributionTracker
 {
 	private int localDamage;
 	private int totalDamage;
+	private Long fightStartMs;
+	private Long fightEndMs;
 
 	public void reset()
 	{
 		localDamage = 0;
 		totalDamage = 0;
+		fightStartMs = null;
+		fightEndMs = null;
 	}
 
 	public void onHitsplatApplied(HitsplatApplied event, Client client, Set<Integer> nexNpcIds)
@@ -59,10 +63,38 @@ public class NexKillContributionTracker
 		{
 			localDamage += amount;
 			totalDamage += amount;
+			markFightStarted();
 		}
 		else if (hitsplat.isOthers())
 		{
 			totalDamage += amount;
+			markFightStarted();
+		}
+	}
+
+	public void markFightEnded()
+	{
+		if (fightStartMs != null && fightEndMs == null)
+		{
+			fightEndMs = System.currentTimeMillis();
+		}
+	}
+
+	public Long getKillDurationMs()
+	{
+		if (fightStartMs == null || fightEndMs == null)
+		{
+			return null;
+		}
+
+		return Math.max(0L, fightEndMs - fightStartMs);
+	}
+
+	private void markFightStarted()
+	{
+		if (fightStartMs == null)
+		{
+			fightStartMs = System.currentTimeMillis();
 		}
 	}
 

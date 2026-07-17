@@ -3,7 +3,11 @@
 A RuneLite plugin that tracks Nex kills, personal loot, team unique drops, and split/FFA GP. 
 
 ## Screenshots
-
+<p align="center">
+  <img src="docs/side-panel.png" alt="Nex Loot Tracker side panel" width="300" />
+  &nbsp;&nbsp;
+  <img src="docs/splits-and-drops.png" alt="Regular drops and split changer" width="300" />
+</p>
   
 
 ## Chat commands

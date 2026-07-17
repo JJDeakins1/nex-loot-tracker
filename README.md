@@ -15,21 +15,20 @@ A RuneLite plugin that tracks Nex kills, personal loot, team unique drops, and s
 Type these in public, friends, or clan chat to share your Nex dry stats. Counts come from your **saved kill logs** (the same data as the side panel), not a separate counter.
 
 
-| Command                      | What it shows                                    |
-| ---------------------------- | ------------------------------------------------ |
-| `!nexdry` or `!nexdrystreak` | Personal dry, team dry, and last personal unique |
-| `!nexlast` or `!nexlastitem` | Last personal unique only                        |
+| Command                      | What it shows             |
+| ---------------------------- | ------------------------- |
+| `!nexdry` or `!nexdrystreak` | Personal dry and team dry |
+| `!nexlast` or `!nexlastitem` | Last personal unique only |
 
 
 Example after typing `!nexdry`:
 
 ```text
-Nex Dry Streak - Personal: 120 / Team: 45 (Last: Zaryte vambraces)
+Nex Dry Streak - Personal: 120 / Team: 45
 ```
 
 - **Personal** — kills since *you* last received a unique (including Nexling)
 - **Team** — kills since *anyone* on your team last received a unique (same idea as **Kills Since Last Drop** in the panel)
-- **Last** — your most recent personal unique from the log
 
 
 

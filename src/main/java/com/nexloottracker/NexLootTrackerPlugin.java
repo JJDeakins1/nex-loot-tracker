@@ -972,25 +972,17 @@ public class NexLootTrackerPlugin extends Plugin
 			return;
 		}
 
-		ChatMessageBuilder builder = new ChatMessageBuilder()
+		String rendered = new ChatMessageBuilder()
 			.append(NEX_DRY_COLOR, "Nex Dry Streak")
 			.append(ChatColorType.HIGHLIGHT)
 			.append(" - Personal: ")
 			.append(Color.RED, Integer.toString(stats.getPersonalDry()))
 			.append(ChatColorType.HIGHLIGHT)
 			.append(" / Team: ")
-			.append(Color.RED, Integer.toString(stats.getTeamDry()));
+			.append(Color.RED, Integer.toString(stats.getTeamDry()))
+			.build();
 
-		if (stats.getLastPersonalItem() != null && !stats.getLastPersonalItem().isEmpty())
-		{
-			builder.append(ChatColorType.HIGHLIGHT)
-				.append(" (Last: ")
-				.append(Color.RED, stats.getLastPersonalItem())
-				.append(ChatColorType.HIGHLIGHT)
-				.append(")");
-		}
-
-		setChatMessage(chatMessage, builder.build());
+		setChatMessage(chatMessage, rendered);
 	}
 
 	private void renderLastItem(ChatMessage chatMessage, String message)

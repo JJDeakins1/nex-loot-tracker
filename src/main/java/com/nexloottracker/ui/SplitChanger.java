@@ -418,7 +418,12 @@ public class SplitChanger extends JPanel
 		LocalDate date = getKillDate();
 		int day = date.getDayOfMonth();
 		String month = date.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
-		return day + getOrdinalSuffix(day) + " " + month + " " + date.getYear();
+		String dateText = day + getOrdinalSuffix(day) + " " + month + " " + date.getYear();
+		if (kill.getCompletionCount() >= 0)
+		{
+			return dateText + " - " + kill.getCompletionCount() + " KC";
+		}
+		return dateText;
 	}
 
 	private static String getOrdinalSuffix(int day)

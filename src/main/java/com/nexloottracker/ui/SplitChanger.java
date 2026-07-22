@@ -5,6 +5,7 @@ import com.nexloottracker.NexUniques;
 import lombok.Getter;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.ColorScheme;
+import net.runelite.client.ui.FontManager;
 import net.runelite.client.util.AsyncBufferedImage;
 
 import javax.swing.BorderFactory;
@@ -22,7 +23,7 @@ import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import java.awt.Component;
+import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.image.AffineTransformOp;
@@ -43,24 +44,93 @@ import java.util.TreeMap;
 
 public class SplitChanger extends JPanel
 {
+	private static final double CONDENSED_ICON_SCALE = 0.9;
+	private static final double FULL_ICON_SCALE = 1.75;
+
 	@Getter
 	private final NexLootTracker kill;
 	private final ItemManager itemManager;
 	private final NexLootTrackerPanel panel;
 	private boolean locked = false;
 
-	public SplitChanger(final ItemManager itemManager, final NexLootTracker kill, final NexLootTrackerPanel panel)
+	public SplitChanger(
+		final ItemManager itemManager,
+		final NexLootTracker kill,
+		final NexLootTrackerPanel panel,
+		final boolean condensed
+	)
 	{
 		this.itemManager = itemManager;
 		this.kill = kill;
 		this.panel = panel;
 
 		setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
-		setBorder(new EmptyBorder(3, 5, 5, 5));
 
-		add(getImagePanel());
-		add(getVarPanel());
+		if (condensed)
+		{
+			setLayout(new BorderLayout(6, 0));
+			setBorder(new EmptyBorder(3, 5, 3, 5));
+			buildCondensedRow();
+		}
+		else
+		{
+			setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+			setBorder(new EmptyBorder(3, 5, 5, 5));
+			add(getImagePanel());
+			add(getVarPanel());
+		}
+	}
+
+	private void buildCondensedRow()
+	{
+		final NexUniques unique = NexUniques.fromName(kill.getSpecialLoot());
+		final int itemId = unique != null ? unique.getItemId() : 0;
+		final AsyncBufferedImage image = itemManager.getImage(itemId, 1, false);
+
+		JLabel icon = new JLabel();
+		icon.setVerticalAlignment(SwingConstants.CENTER);
+		icon.setHorizontalAlignment(SwingConstants.CENTER);
+		icon.setToolTipText(kill.getSpecialLoot());
+		icon.setIcon(new ImageIcon(resizeImage(image, CONDENSED_ICON_SCALE)));
+		image.onLoaded(() ->
+		{
+			icon.setIcon(new ImageIcon(resizeImage(image, CONDENSED_ICON_SCALE)));
+			icon.revalidate();
+			icon.repaint();
+		});
+
+		JPanel left = new JPanel();
+		left.setLayout(new BoxLayout(left, BoxLayout.X_AXIS));
+		left.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		left.add(icon);
+		left.add(Box.createRigidArea(new Dimension(6, 0)));
+
+		JLabel receiver = panel.textPanel(fixSpaces(kill.getSpecialLootReceiver()));
+		receiver.setForeground(ColorScheme.LIGHT_GRAY_COLOR.brighter());
+		receiver.setToolTipText(getAbsoluteDateText());
+		left.add(receiver);
+
+		JCheckBox ffa = new JCheckBox("FFA?");
+		ffa.setFont(FontManager.getRunescapeSmallFont());
+		ffa.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		ffa.setSelected(kill.isFreeForAll());
+		ffa.setToolTipText("Toggle free-for-all and save immediately");
+		ffa.addActionListener(e ->
+		{
+			kill.setFreeForAll(ffa.isSelected());
+			if (ffa.isSelected())
+			{
+				setFfa();
+			}
+			else
+			{
+				setSplit();
+			}
+			panel.persistKill(kill);
+		});
+
+		add(left, BorderLayout.CENTER);
+		add(ffa, BorderLayout.EAST);
 	}
 
 	private JPanel getImagePanel()
@@ -74,14 +144,14 @@ public class SplitChanger extends JPanel
 		iconWrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		JLabel icon = new JLabel();
-		icon.setIcon(new ImageIcon(resizeImage(image)));
+		icon.setIcon(new ImageIcon(resizeImage(image, FULL_ICON_SCALE)));
 		icon.setVerticalAlignment(SwingConstants.CENTER);
 		icon.setHorizontalAlignment(SwingConstants.CENTER);
 		icon.setToolTipText(kill.getSpecialLoot());
 
 		image.onLoaded(() ->
 		{
-			icon.setIcon(new ImageIcon(resizeImage(image)));
+			icon.setIcon(new ImageIcon(resizeImage(image, FULL_ICON_SCALE)));
 			icon.revalidate();
 			icon.repaint();
 		});
@@ -165,8 +235,8 @@ public class SplitChanger extends JPanel
 			}
 			splitReceived.setText(format(atLeastZero(kill.getLootSplitReceived())));
 			splitReceived.setToolTipText(NumberFormat.getInstance().format(atLeastZero(kill.getLootSplitReceived())));
-			panel.setUpdateButton(true);
 			locked = false;
+			panel.persistKill(kill);
 		});
 
 		JPanel receivedWrapper = new JPanel();
@@ -259,9 +329,46 @@ public class SplitChanger extends JPanel
 		}
 	}
 
-	private BufferedImage resizeImage(BufferedImage before)
+	private BufferedImage resizeImage(BufferedImage before, double scale)
 	{
-		return panel.resizeImage(before, 1.75, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
+		return panel.resizeImage(before, scale, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
+	}
+
+	public static String getDateSection(NexLootTracker kill)
+	{
+		LocalDate date = Instant.ofEpochMilli(kill.getDate()).atZone(ZoneId.systemDefault()).toLocalDate();
+		LocalDate today = LocalDate.now();
+		LocalDate yesterday = today.minusDays(1);
+		LocalDate startOfThisWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+		LocalDate startOfLastWeek = startOfThisWeek.minusWeeks(1);
+		YearMonth currentMonth = YearMonth.from(today);
+		YearMonth dropMonth = YearMonth.from(date);
+
+		if (date.equals(today))
+		{
+			return "Today";
+		}
+		if (date.equals(yesterday))
+		{
+			return "Yesterday";
+		}
+		if (!date.isBefore(startOfThisWeek))
+		{
+			return "This Week";
+		}
+		if (!date.isBefore(startOfLastWeek))
+		{
+			return "Last Week";
+		}
+		if (dropMonth.equals(currentMonth))
+		{
+			return "This Month";
+		}
+		if (dropMonth.equals(currentMonth.minusMonths(1)))
+		{
+			return "Last Month";
+		}
+		return date.format(DateTimeFormatter.ofPattern("dd/MM/yy"));
 	}
 
 	private LocalDate getKillDate()

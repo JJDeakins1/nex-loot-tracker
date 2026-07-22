@@ -125,6 +125,9 @@ public class NexLootTrackerPlugin extends Plugin
 	private ScheduledExecutorService executor;
 
 	@Inject
+	private ConfigManager configManager;
+
+	@Inject
 	private NexChatClient nexChatClient;
 
 	private final NexKillContributionTracker contributionTracker = new NexKillContributionTracker();
@@ -146,7 +149,7 @@ public class NexLootTrackerPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
-		panel = new NexLootTrackerPanel(itemManager, fileReadWriter, config, client);
+		panel = new NexLootTrackerPanel(itemManager, fileReadWriter, config, configManager, client);
 
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel-icon.png");
 

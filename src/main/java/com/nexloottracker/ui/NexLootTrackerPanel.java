@@ -11,6 +11,7 @@ import com.nexloottracker.filereadwriter.FileReadWriter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
@@ -21,6 +22,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -34,6 +36,7 @@ import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
@@ -53,6 +56,7 @@ public class NexLootTrackerPanel extends PluginPanel
 	private final ItemManager itemManager;
 	private final FileReadWriter fileReadWriter;
 	private final NexLootTrackerConfig config;
+	private final ConfigManager configManager;
 	private final Client client;
 
 	@Setter
@@ -64,6 +68,7 @@ public class NexLootTrackerPanel extends PluginPanel
 
 	private final JPanel contentPanel = new JPanel();
 	private JButton updateButton;
+	private final ArrayList<SplitChanger> activeSplitChangers = new ArrayList<>();
 
 	@Setter
 	private String dateFilter = "All Time";
@@ -80,12 +85,14 @@ public class NexLootTrackerPanel extends PluginPanel
 		final ItemManager itemManager,
 		final FileReadWriter fileReadWriter,
 		final NexLootTrackerConfig config,
+		final ConfigManager configManager,
 		final Client client
 	)
 	{
 		this.itemManager = itemManager;
 		this.fileReadWriter = fileReadWriter;
 		this.config = config;
+		this.configManager = configManager;
 		this.client = client;
 
 		contentPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -138,6 +145,22 @@ public class NexLootTrackerPanel extends PluginPanel
 		{
 			updateButton.setEnabled(enabled);
 			updateButton.setToolTipText(enabled ? "Save split changes" : "Nothing to update");
+		}
+	}
+
+	public void persistKill(NexLootTracker kill)
+	{
+		persistKill(kill, true);
+	}
+
+	public void persistKill(NexLootTracker kill, boolean rebuild)
+	{
+		uuidMap.put(kill.getUniqueID(), kill);
+		killList = new ArrayList<>(uuidMap.values());
+		fileReadWriter.updateKillList(killList);
+		if (rebuild)
+		{
+			updateView();
 		}
 	}
 
@@ -569,51 +592,57 @@ public class NexLootTrackerPanel extends PluginPanel
 	{
 		JPanel wrapper = new JPanel();
 		wrapper.setLayout(new BoxLayout(wrapper, BoxLayout.Y_AXIS));
+		activeSplitChangers.clear();
 
-		JPanel titleWrapper = new JPanel(new GridBagLayout());
+		final boolean condensed = isCompactSplitChanger();
+
+		JPanel titleWrapper = new JPanel(new BorderLayout(6, 0));
 		titleWrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR.darker());
-		titleWrapper.setBorder(new EmptyBorder(3, 3, 3, 3));
+		titleWrapper.setBorder(new EmptyBorder(3, 5, 3, 5));
 
-		GridBagConstraints c = new GridBagConstraints();
-		c.fill = GridBagConstraints.HORIZONTAL;
-		c.weightx = 1;
-		c.gridx = 0;
+		JCheckBox compactToggle = new JCheckBox("Compact");
+		compactToggle.setFont(FontManager.getRunescapeSmallFont());
+		compactToggle.setBackground(ColorScheme.DARKER_GRAY_COLOR.darker());
+		compactToggle.setForeground(Color.WHITE);
+		compactToggle.setFocusPainted(false);
+		compactToggle.setSelected(condensed);
+		compactToggle.setToolTipText(condensed ? "Show full purple split editors" : "Show compact purple split rows");
+		compactToggle.addActionListener(e ->
+			configManager.setConfiguration(
+				NexLootTrackerConfig.CONFIG_GROUP,
+				"condenseSplitChanger",
+				compactToggle.isSelected()
+			)
+		);
+		titleWrapper.add(compactToggle, BorderLayout.WEST);
 
-		JLabel title = textPanel("Change Purple Splits");
-		title.setBorder(new EmptyBorder(0, 5, 0, 0));
-		titleWrapper.add(title, c);
-
-		updateButton = new JButton("Update");
-		updateButton.setFont(FontManager.getRunescapeSmallFont());
-		updateButton.setPreferredSize(new Dimension(60, 20));
-		updateButton.setEnabled(false);
-		updateButton.setFocusPainted(false);
-		updateButton.setToolTipText("Nothing to update");
-		updateButton.addActionListener(e ->
+		if (!condensed)
 		{
-			ArrayList<SplitChanger> changers = new ArrayList<>();
-			for (java.awt.Component component : wrapper.getComponents())
+			updateButton = new JButton("Update");
+			updateButton.setFont(FontManager.getRunescapeSmallFont());
+			updateButton.setMargin(new Insets(1, 6, 1, 6));
+			updateButton.setEnabled(false);
+			updateButton.setFocusPainted(false);
+			updateButton.setToolTipText("Nothing to update");
+			updateButton.addActionListener(e ->
 			{
-				if (component instanceof SplitChanger)
+				for (SplitChanger changer : activeSplitChangers)
 				{
-					changers.add((SplitChanger) component);
+					uuidMap.put(changer.getKill().getUniqueID(), changer.getKill());
 				}
-			}
 
-			for (SplitChanger changer : changers)
-			{
-				uuidMap.put(changer.getKill().getUniqueID(), changer.getKill());
-			}
+				killList = new ArrayList<>(uuidMap.values());
+				fileReadWriter.updateKillList(killList);
+				setUpdateButton(false);
+				updateView();
+			});
+			titleWrapper.add(updateButton, BorderLayout.EAST);
+		}
+		else
+		{
+			updateButton = null;
+		}
 
-			killList = new ArrayList<>(uuidMap.values());
-			fileReadWriter.updateKillList(killList);
-			setUpdateButton(false);
-			updateView();
-		});
-
-		c.gridx = 1;
-		c.anchor = GridBagConstraints.EAST;
-		titleWrapper.add(updateButton, c);
 		wrapper.add(titleWrapper);
 		wrapper.add(Box.createRigidArea(new Dimension(0, 2)));
 
@@ -622,14 +651,51 @@ public class NexLootTrackerPanel extends PluginPanel
 			ArrayList<NexLootTracker> purples = filterPurples();
 			purples.sort((a, b) -> Long.compare(b.getDate(), a.getDate()));
 
-			for (int i = 0; i < Math.min(purples.size(), 10); i++)
+			final int displayLimit = condensed ? purples.size() : Math.min(purples.size(), 10);
+			String currentSection = null;
+			for (int i = 0; i < displayLimit; i++)
 			{
-				wrapper.add(new SplitChanger(itemManager, purples.get(i), this));
-				wrapper.add(Box.createRigidArea(new Dimension(0, 7)));
+				NexLootTracker purple = purples.get(i);
+
+				if (condensed)
+				{
+					String section = SplitChanger.getDateSection(purple);
+					if (!section.equals(currentSection))
+					{
+						currentSection = section;
+						wrapper.add(buildSplitSectionHeader(section));
+						wrapper.add(Box.createRigidArea(new Dimension(0, 2)));
+					}
+				}
+
+				SplitChanger changer = new SplitChanger(itemManager, purple, this, condensed);
+				activeSplitChangers.add(changer);
+				wrapper.add(changer);
+				wrapper.add(Box.createRigidArea(new Dimension(0, condensed ? 4 : 7)));
 			}
 		}
 
 		return wrapper;
+	}
+
+	private boolean isCompactSplitChanger()
+	{
+		return Boolean.parseBoolean(configManager.getConfiguration(
+			NexLootTrackerConfig.CONFIG_GROUP,
+			"condenseSplitChanger"
+		));
+	}
+
+	private JPanel buildSplitSectionHeader(String section)
+	{
+		JPanel header = new JPanel(new BorderLayout());
+		header.setBackground(ColorScheme.DARKER_GRAY_COLOR.darker());
+		header.setBorder(new EmptyBorder(4, 8, 4, 8));
+
+		JLabel label = textPanel(section);
+		label.setForeground(ColorScheme.LIGHT_GRAY_COLOR.brighter());
+		header.add(label, BorderLayout.WEST);
+		return header;
 	}
 
 	private ArrayList<NexLootTracker> getFilteredKillList()

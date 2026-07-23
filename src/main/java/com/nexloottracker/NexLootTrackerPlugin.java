@@ -274,16 +274,21 @@ public class NexLootTrackerPlugin extends Plugin
 
 		for (NexLootTrackerItem item : kill.getLootList())
 		{
-			if (NexUniques.isUniqueItemId(item.getId()))
+			if (!NexUniques.isUniqueItemId(item.getId()))
 			{
-				applyUniqueDrop(
-					NexUniques.fromName(item.getName()),
-					getLocalPlayerName(),
-					true,
-					item.getPrice()
-				);
-				break;
+				continue;
 			}
+
+			final NexUniques unique = NexUniques.fromItemId(item.getId());
+			if (unique == NexUniques.NEXLING)
+			{
+				handlePetDrop(getLocalPlayerName(), getLocalPlayerName());
+			}
+			else
+			{
+				applyUniqueDrop(unique, getLocalPlayerName(), true, item.getPrice());
+			}
+			break;
 		}
 
 		log.info("Recorded personal Nex loot: {} items, teamSize={}, npcId={}",
@@ -355,17 +360,18 @@ public class NexLootTrackerPlugin extends Plugin
 			return;
 		}
 
-		matcher = UNIQUE_DROP_PATTERN.matcher(message);
-		if (matcher.find())
-		{
-			handleUniqueDrop(matcher.group(1).trim(), matcher.group(2).trim(), playerName);
-			return;
-		}
-
+		// Prefer pet pattern first: UNIQUE_DROP_PATTERN also matches "received a drop: Nexling".
 		matcher = PET_PATTERN.matcher(message);
 		if (matcher.find())
 		{
 			handlePetDrop(matcher.group(1).trim(), playerName);
+			return;
+		}
+
+		matcher = UNIQUE_DROP_PATTERN.matcher(message);
+		if (matcher.find())
+		{
+			handleUniqueDrop(matcher.group(1).trim(), matcher.group(2).trim(), playerName);
 		}
 	}
 
@@ -410,6 +416,13 @@ public class NexLootTrackerPlugin extends Plugin
 			return;
 		}
 
+		// Nexling is tracked via petReceiver / petInMyName, not specialLoot.
+		if (unique == NexUniques.NEXLING)
+		{
+			handlePetDrop(receiver, playerName);
+			return;
+		}
+
 		final String jagexReceiver = normalizeReceiver(receiver);
 		final boolean inOwnName = jagexReceiver.equalsIgnoreCase(playerName);
 		applyUniqueDrop(unique, jagexReceiver, inOwnName, getItemPrice(unique.getItemId()));
@@ -430,6 +443,18 @@ public class NexLootTrackerPlugin extends Plugin
 		if (isRecordedUnique(unique.getName(), receiver))
 		{
 			return;
+		}
+
+		// Pet and unique-table drops share a killCountID but get separate log rows
+		// so both appear in the purple list (same pattern as multiple uniques).
+		if (kill.getSpecialLoot().isEmpty() && !kill.getPetReceiver().isEmpty())
+		{
+			pendingUniqueKills.add(createPendingPetEntry(
+				kill,
+				kill.getPetReceiver(),
+				kill.isPetInMyName()
+			));
+			clearPet(kill);
 		}
 
 		if (kill.getSpecialLoot().isEmpty())
@@ -456,6 +481,7 @@ public class NexLootTrackerPlugin extends Plugin
 		final NexLootTracker pending = copyKill(source);
 		pending.setUniqueID(UUID.randomUUID().toString());
 		pending.setLootList(new ArrayList<>());
+		clearPet(pending);
 		return pending;
 	}
 
@@ -471,7 +497,20 @@ public class NexLootTrackerPlugin extends Plugin
 		pending.setUniqueID(UUID.randomUUID().toString());
 		pending.setLootList(new ArrayList<>());
 		clearSpecialLoot(pending);
+		clearPet(pending);
 		setSpecialLootOnKill(pending, unique, receiver, inOwnName, itemPrice);
+		return pending;
+	}
+
+	private NexLootTracker createPendingPetEntry(NexLootTracker source, String receiver, boolean inOwnName)
+	{
+		final NexLootTracker pending = copyKill(source);
+		pending.setUniqueID(UUID.randomUUID().toString());
+		pending.setLootList(new ArrayList<>());
+		clearSpecialLoot(pending);
+		clearPet(pending);
+		pending.setPetReceiver(receiver);
+		pending.setPetInMyName(inOwnName);
 		return pending;
 	}
 
@@ -499,6 +538,12 @@ public class NexLootTrackerPlugin extends Plugin
 		kill.setLootSplitReceived(-1);
 		kill.setLootSplitPaid(-1);
 		kill.setFreeForAll(false);
+	}
+
+	private void clearPet(NexLootTracker kill)
+	{
+		kill.setPetReceiver("");
+		kill.setPetInMyName(false);
 	}
 
 	private boolean isRecordedUnique(String itemName, String receiver)
@@ -549,7 +594,7 @@ public class NexLootTrackerPlugin extends Plugin
 
 	private void handlePetDrop(String receiver, String playerName)
 	{
-		final String jagexReceiver = Text.toJagexName(receiver);
+		final String jagexReceiver = normalizeReceiver(receiver);
 		final boolean inOwnName = jagexReceiver.equalsIgnoreCase(playerName);
 
 		if (currentKill == null)
@@ -557,23 +602,53 @@ public class NexLootTrackerPlugin extends Plugin
 			currentKill = createNewKill();
 		}
 
-		if (currentKill.getPetReceiver().isEmpty())
+		if (isRecordedPet(jagexReceiver))
 		{
-			currentKill.setPetReceiver(jagexReceiver);
-			currentKill.setPetInMyName(inOwnName);
 			return;
 		}
 
-		final NexLootTracker altKill = copyKill(currentKill);
-		altKill.setUniqueID(java.util.UUID.randomUUID().toString());
-		altKill.setPetReceiver(jagexReceiver);
-		altKill.setPetInMyName(inOwnName);
-
-		if (currentKill.isKillComplete())
+		// If a unique (or another pet) is already on this kill, fork onto a pending row
+		// so both drops appear separately in the UI while sharing killCountID.
+		if (!currentKill.getSpecialLoot().isEmpty() || !currentKill.getPetReceiver().isEmpty())
 		{
-			fileReadWriter.writeToFile(altKill);
-			SwingUtilities.invokeLater(() -> panel.addKill(altKill, false));
+			final NexLootTracker pending = createPendingPetEntry(currentKill, jagexReceiver, inOwnName);
+			if (currentKill.isKillComplete())
+			{
+				fileReadWriter.writeToFile(pending);
+				SwingUtilities.invokeLater(() -> panel.addKill(pending, false));
+			}
+			else
+			{
+				pendingUniqueKills.add(pending);
+			}
+			log.info("Nexling pet recorded on pending row: receiver={}, own={}", jagexReceiver, inOwnName);
+			return;
 		}
+
+		currentKill.setPetReceiver(jagexReceiver);
+		currentKill.setPetInMyName(inOwnName);
+		log.info("Nexling pet recorded: receiver={}, own={}", jagexReceiver, inOwnName);
+	}
+
+	private boolean isRecordedPet(String receiver)
+	{
+		if (currentKill != null
+			&& !currentKill.getPetReceiver().isEmpty()
+			&& currentKill.getPetReceiver().equalsIgnoreCase(receiver))
+		{
+			return true;
+		}
+
+		for (NexLootTracker pending : pendingUniqueKills)
+		{
+			if (!pending.getPetReceiver().isEmpty()
+				&& pending.getPetReceiver().equalsIgnoreCase(receiver))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	@Subscribe(priority = 1.0f)

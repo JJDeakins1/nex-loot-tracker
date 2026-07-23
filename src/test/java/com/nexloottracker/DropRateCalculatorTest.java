@@ -5,7 +5,9 @@ import org.junit.Test;
 import java.util.ArrayList;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class DropRateCalculatorTest
 {
@@ -169,6 +171,31 @@ public class DropRateCalculatorTest
 	}
 
 	@Test
+	public void petDoesNotResetUniqueDryStreaks()
+	{
+		ArrayList<NexLootTracker> kills = new ArrayList<>();
+		kills.add(ownUniqueKill(1, NexUniques.ZARYTE_VAMBRACES, true));
+		kills.add(killWithDate(2, "", ""));
+		kills.add(ownPetKill(3, true));
+		kills.add(killWithDate(4, "", ""));
+		kills.add(killWithDate(5, "", ""));
+
+		// Pet is tertiary — personal/team unique dry continue past the pet kill.
+		assertEquals(4, DropRateCalculator.getPersonalDryCount(kills));
+		assertEquals(4, DropRateCalculator.getKillsSinceLastSeenUnique(kills));
+		assertEquals(NexUniques.ZARYTE_VAMBRACES.getName(), DropRateCalculator.getLastOwnUniqueName(kills));
+	}
+
+	@Test
+	public void petDoesNotCountAsSeenUniqueTableDrop()
+	{
+		NexLootTracker petKill = ownPetKill(1, true);
+		assertFalse(DropRateCalculator.hasSeenUnique(petKill));
+		assertFalse(DropRateCalculator.isAnyOwnUnique(petKill));
+		assertTrue(DropRateCalculator.isOwnUnique(petKill, NexUniques.NEXLING));
+	}
+
+	@Test
 	public void getDryStreakStatsIncludesLastPersonalItem()
 	{
 		ArrayList<NexLootTracker> kills = new ArrayList<>();
@@ -237,6 +264,13 @@ public class DropRateCalculatorTest
 	{
 		NexLootTracker kill = killWithDate(date, unique.getName(), "");
 		kill.setSpecialLootInOwnName(inOwnName);
+		return kill;
+	}
+
+	private static NexLootTracker ownPetKill(long date, boolean inOwnName)
+	{
+		NexLootTracker kill = killWithDate(date, "", inOwnName ? "IFrac" : "Teammate");
+		kill.setPetInMyName(inOwnName);
 		return kill;
 	}
 }

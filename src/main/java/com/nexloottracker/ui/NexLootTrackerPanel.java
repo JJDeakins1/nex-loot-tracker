@@ -648,14 +648,14 @@ public class NexLootTrackerPanel extends PluginPanel
 
 		if (loaded)
 		{
-			ArrayList<NexLootTracker> purples = filterPurples();
-			purples.sort((a, b) -> Long.compare(b.getDate(), a.getDate()));
+			ArrayList<NexLootTracker> uniquesAndPets = filterUniquesAndPets();
+			uniquesAndPets.sort((a, b) -> Long.compare(b.getDate(), a.getDate()));
 
-			final int displayLimit = condensed ? purples.size() : Math.min(purples.size(), 10);
+			final int displayLimit = condensed ? uniquesAndPets.size() : Math.min(uniquesAndPets.size(), 10);
 			String currentSection = null;
 			for (int i = 0; i < displayLimit; i++)
 			{
-				NexLootTracker purple = purples.get(i);
+				NexLootTracker purple = uniquesAndPets.get(i);
 
 				if (condensed)
 				{
@@ -788,24 +788,11 @@ public class NexLootTrackerPanel extends PluginPanel
 		return list.stream().filter(NexLootTracker::isPetInMyName).collect(Collectors.toCollection(ArrayList::new));
 	}
 
-	private ArrayList<NexLootTracker> filterPurples()
+	private ArrayList<NexLootTracker> filterUniquesAndPets()
 	{
 		return getFilteredKillList().stream()
-			.filter(kill ->
-			{
-				for (NexUniques unique : NEX_UNIQUES)
-				{
-					if (unique == NexUniques.NEXLING)
-					{
-						continue;
-					}
-					if (unique.getName().equalsIgnoreCase(kill.getSpecialLoot()))
-					{
-						return true;
-					}
-				}
-				return false;
-			})
+			.filter(kill -> DropRateCalculator.isUniqueTableDrop(kill.getSpecialLoot())
+				|| DropRateCalculator.isPetDrop(kill))
 			.collect(Collectors.toCollection(ArrayList::new));
 	}
 
@@ -862,7 +849,12 @@ public class NexLootTrackerPanel extends PluginPanel
 
 	private String getUniqueToolTip(NexUniques unique, int seen, int received)
 	{
-		return "<html>" + unique.getName() + "<br>Received: " + received + "x<br>Seen: " + seen + "x";
+		String tip = "<html>" + unique.getName() + "<br>Received: " + received + "x<br>Seen: " + seen + "x";
+		if (unique == NexUniques.NEXLING)
+		{
+			tip += "<br>Tertiary 1/500 (independent of unique table)";
+		}
+		return tip;
 	}
 
 	private String getRegularToolTip(NexLootTrackerItem drop)

@@ -27,8 +27,10 @@ Example after typing `!nexdry`:
 Nex Dry Streak - Personal: 120 / Team: 45
 ```
 
-- **Personal** — kills since *you* last received a unique (including Nexling)
-- **Team** — kills since *anyone* on your team last received a unique (same idea as **Kills Since Last Drop** in the panel)
+- **Personal** — kills since *you* last received a unique-table drop (Nexling does **not** reset this)
+- **Team** — kills since *anyone* on your team last received a unique-table drop (same idea as **Kills Since Last Drop** in the panel)
+
+Nexling is a tertiary drop (**1/500**), rolled independently from the unique table (**~1/43**). It appears as its own row in the Uniques table (with its own Due) and is included in Own/Seen totals. It does **not** reset unique dry streaks or the Total Due for uniques.
 
 
 

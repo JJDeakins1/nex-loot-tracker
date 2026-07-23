@@ -1,5 +1,6 @@
 package com.nexloottracker.ui;
 
+import com.nexloottracker.DropRateCalculator;
 import com.nexloottracker.NexLootTracker;
 import com.nexloottracker.NexUniques;
 import lombok.Getter;
@@ -83,14 +84,15 @@ public class SplitChanger extends JPanel
 
 	private void buildCondensedRow()
 	{
-		final NexUniques unique = NexUniques.fromName(kill.getSpecialLoot());
+		final boolean petOnly = isPetOnlyEntry();
+		final NexUniques unique = getDisplayUnique();
 		final int itemId = unique != null ? unique.getItemId() : 0;
 		final AsyncBufferedImage image = itemManager.getImage(itemId, 1, false);
 
 		JLabel icon = new JLabel();
 		icon.setVerticalAlignment(SwingConstants.CENTER);
 		icon.setHorizontalAlignment(SwingConstants.CENTER);
-		icon.setToolTipText(kill.getSpecialLoot());
+		icon.setToolTipText(getDisplayItemName());
 		icon.setIcon(new ImageIcon(resizeImage(image, CONDENSED_ICON_SCALE)));
 		image.onLoaded(() ->
 		{
@@ -105,10 +107,17 @@ public class SplitChanger extends JPanel
 		left.add(icon);
 		left.add(Box.createRigidArea(new Dimension(6, 0)));
 
-		JLabel receiver = panel.textPanel(fixSpaces(kill.getSpecialLootReceiver()));
+		JLabel receiver = panel.textPanel(fixSpaces(getDisplayReceiver()));
 		receiver.setForeground(ColorScheme.LIGHT_GRAY_COLOR.brighter());
 		receiver.setToolTipText(getAbsoluteDateText());
 		left.add(receiver);
+
+		add(left, BorderLayout.CENTER);
+
+		if (petOnly)
+		{
+			return;
+		}
 
 		JCheckBox ffa = new JCheckBox("FFA?");
 		ffa.setFont(FontManager.getRunescapeSmallFont());
@@ -129,13 +138,12 @@ public class SplitChanger extends JPanel
 			panel.persistKill(kill);
 		});
 
-		add(left, BorderLayout.CENTER);
 		add(ffa, BorderLayout.EAST);
 	}
 
 	private JPanel getImagePanel()
 	{
-		final NexUniques unique = NexUniques.fromName(kill.getSpecialLoot());
+		final NexUniques unique = getDisplayUnique();
 		final int itemId = unique != null ? unique.getItemId() : 0;
 		final AsyncBufferedImage image = itemManager.getImage(itemId, 1, false);
 
@@ -147,7 +155,7 @@ public class SplitChanger extends JPanel
 		icon.setIcon(new ImageIcon(resizeImage(image, FULL_ICON_SCALE)));
 		icon.setVerticalAlignment(SwingConstants.CENTER);
 		icon.setHorizontalAlignment(SwingConstants.CENTER);
-		icon.setToolTipText(kill.getSpecialLoot());
+		icon.setToolTipText(getDisplayItemName());
 
 		image.onLoaded(() ->
 		{
@@ -170,6 +178,11 @@ public class SplitChanger extends JPanel
 
 	private JPanel getVarPanel()
 	{
+		if (isPetOnlyEntry())
+		{
+			return getPetVarPanel();
+		}
+
 		JPanel varPanel = new JPanel();
 		varPanel.setLayout(new BoxLayout(varPanel, BoxLayout.Y_AXIS));
 		varPanel.setBorder(new EmptyBorder(5, 5, 5, 0));
@@ -244,7 +257,7 @@ public class SplitChanger extends JPanel
 		receivedWrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		JLabel receivedBy = panel.textPanel("received by: ");
 		receivedBy.setForeground(ColorScheme.LIGHT_GRAY_COLOR.brighter());
-		JLabel receiver = panel.textPanel(fixSpaces(kill.getSpecialLootReceiver()));
+		JLabel receiver = panel.textPanel(fixSpaces(getDisplayReceiver()));
 		receiver.setForeground(ColorScheme.LIGHT_GRAY_COLOR.brighter());
 		receivedWrapper.add(receivedBy);
 		receivedWrapper.add(receiver);
@@ -283,6 +296,84 @@ public class SplitChanger extends JPanel
 		varPanel.add(teamSizeWrapper);
 
 		return varPanel;
+	}
+
+	private JPanel getPetVarPanel()
+	{
+		JPanel varPanel = new JPanel();
+		varPanel.setLayout(new BoxLayout(varPanel, BoxLayout.Y_AXIS));
+		varPanel.setBorder(new EmptyBorder(5, 5, 5, 0));
+		varPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		// Unique rows stretch full width because their GridLayout children report
+		// unbounded max size; labels alone don't, so match that here.
+		JPanel receivedWrapper = new JPanel(new GridLayout(0, 1));
+		receivedWrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		JLabel receivedBy = panel.textPanel("received by: ");
+		receivedBy.setForeground(ColorScheme.LIGHT_GRAY_COLOR.brighter());
+		JLabel receiver = panel.textPanel(fixSpaces(getDisplayReceiver()));
+		receiver.setForeground(ColorScheme.LIGHT_GRAY_COLOR.brighter());
+		receivedWrapper.add(receivedBy);
+		receivedWrapper.add(receiver);
+
+		varPanel.add(receivedWrapper);
+		return varPanel;
+	}
+
+	private boolean isPetOnlyEntry()
+	{
+		if (DropRateCalculator.isUniqueTableDrop(kill.getSpecialLoot()))
+		{
+			return false;
+		}
+
+		return DropRateCalculator.isPetDrop(kill)
+			|| NexUniques.NEXLING.getName().equalsIgnoreCase(kill.getSpecialLoot());
+	}
+
+	private NexUniques getDisplayUnique()
+	{
+		// Prefer unique-table drop for split editing when both somehow exist on one record.
+		if (DropRateCalculator.isUniqueTableDrop(kill.getSpecialLoot()))
+		{
+			return NexUniques.fromName(kill.getSpecialLoot());
+		}
+		if (isPetOnlyEntry())
+		{
+			return NexUniques.NEXLING;
+		}
+		return NexUniques.fromName(kill.getSpecialLoot());
+	}
+
+	private String getDisplayItemName()
+	{
+		if (DropRateCalculator.isUniqueTableDrop(kill.getSpecialLoot()))
+		{
+			return kill.getSpecialLoot();
+		}
+		if (isPetOnlyEntry())
+		{
+			return NexUniques.NEXLING.getName();
+		}
+		return kill.getSpecialLoot();
+	}
+
+	private String getDisplayReceiver()
+	{
+		if (DropRateCalculator.isUniqueTableDrop(kill.getSpecialLoot()))
+		{
+			return kill.getSpecialLootReceiver();
+		}
+		if (DropRateCalculator.isPetDrop(kill))
+		{
+			return kill.getPetReceiver();
+		}
+		if (NexUniques.NEXLING.getName().equalsIgnoreCase(kill.getSpecialLoot()))
+		{
+			return kill.getSpecialLootReceiver();
+		}
+		return kill.getSpecialLootReceiver();
 	}
 
 	private JTextField getTextField()

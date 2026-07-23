@@ -11,6 +11,7 @@ import java.util.function.Predicate;
  * Nex unique drop rates are rolled per kill (1/43 for any unique on the table).
  * A player's personal rate scales linearly with kill contribution, e.g. 20% contribution
  * yields a 1/215 chance for any unique (43 / 0.20 = 215).
+ * Nexling is tertiary (1/500) and is tracked separately — it does not reset unique dry streaks.
  */
 public final class DropRateCalculator
 {
@@ -73,7 +74,8 @@ public final class DropRateCalculator
 	}
 
 	/**
-	 * Kills since the local player's last personal unique (including Nexling).
+	 * Kills since the local player's last personal unique-table drop.
+	 * Nexling is tertiary (1/500) and does not reset this streak.
 	 * Computed from saved kill logs — same source of truth as the side panel.
 	 */
 	public static int getPersonalDryCount(List<NexLootTracker> kills)
@@ -82,7 +84,8 @@ public final class DropRateCalculator
 	}
 
 	/**
-	 * Most recent personal unique name from saved logs, or empty when none exist.
+	 * Most recent personal unique-table drop name from saved logs, or empty when none exist.
+	 * Nexling is excluded (separate tertiary roll).
 	 */
 	public static String getLastOwnUniqueName(List<NexLootTracker> kills)
 	{
@@ -91,17 +94,10 @@ public final class DropRateCalculator
 
 		for (NexLootTracker kill : distinct)
 		{
-			if (!isAnyOwnUnique(kill))
+			if (isAnyOwnUnique(kill))
 			{
-				continue;
+				return kill.getSpecialLoot();
 			}
-
-			if (kill.isPetInMyName())
-			{
-				return NexUniques.NEXLING.getName();
-			}
-
-			return kill.getSpecialLoot();
 		}
 
 		return "";
@@ -264,24 +260,22 @@ public final class DropRateCalculator
 		return String.format(Locale.US, "%.2f", multiplier);
 	}
 
+	/**
+	 * True when anyone on the team received a unique-table drop this kill.
+	 * Nexling is tertiary and does not count.
+	 */
 	public static boolean hasSeenUnique(NexLootTracker kill)
 	{
-		return !kill.getSpecialLoot().isEmpty() || !kill.getPetReceiver().isEmpty();
+		return isUniqueTableDrop(kill.getSpecialLoot());
 	}
 
+	/**
+	 * True when the local player received a unique-table drop this kill.
+	 * Nexling is tertiary and does not count.
+	 */
 	public static boolean isAnyOwnUnique(NexLootTracker kill)
 	{
-		if (kill.isPetInMyName())
-		{
-			return true;
-		}
-
-		if (!kill.isSpecialLootInOwnName())
-		{
-			return false;
-		}
-
-		return NexUniques.fromName(kill.getSpecialLoot()) != null;
+		return kill.isSpecialLootInOwnName() && isUniqueTableDrop(kill.getSpecialLoot());
 	}
 
 	public static boolean isOwnUnique(NexLootTracker kill, NexUniques unique)
@@ -293,5 +287,24 @@ public final class DropRateCalculator
 
 		return kill.isSpecialLootInOwnName()
 			&& unique.getName().equalsIgnoreCase(kill.getSpecialLoot());
+	}
+
+	/**
+	 * Unique drop table items only (excludes Nexling tertiary pet).
+	 */
+	public static boolean isUniqueTableDrop(String itemName)
+	{
+		if (itemName == null || itemName.isEmpty())
+		{
+			return false;
+		}
+
+		final NexUniques unique = NexUniques.fromName(itemName);
+		return unique != null && unique != NexUniques.NEXLING;
+	}
+
+	public static boolean isPetDrop(NexLootTracker kill)
+	{
+		return kill != null && !kill.getPetReceiver().isEmpty();
 	}
 }

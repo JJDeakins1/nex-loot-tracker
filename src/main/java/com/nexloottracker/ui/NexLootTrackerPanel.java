@@ -680,10 +680,12 @@ public class NexLootTrackerPanel extends PluginPanel
 
 	private boolean isCompactSplitChanger()
 	{
-		return Boolean.parseBoolean(configManager.getConfiguration(
+		final String value = configManager.getConfiguration(
 			NexLootTrackerConfig.CONFIG_GROUP,
 			"condenseSplitChanger"
-		));
+		);
+		// Default to compact when the user has never toggled the setting.
+		return value == null || Boolean.parseBoolean(value);
 	}
 
 	private JPanel buildSplitSectionHeader(String section)

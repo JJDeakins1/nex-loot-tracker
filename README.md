@@ -4,9 +4,11 @@ A RuneLite plugin that tracks Nex kills, personal loot, team unique drops, and s
 
 ## Screenshots
 <p align="center">
-  <img src="docs/side-panel.png" alt="Nex Loot Tracker side panel" width="300" />
+  <img src="docs/side-panel-1.png" alt="Nex Loot Tracker side panel" width="250" />
   &nbsp;&nbsp;
-  <img src="docs/splits-and-drops.png" alt="Regular drops and split changer" width="300" />
+  <img src="docs/side-panel-2.png" alt="Regular drops and split changer" width="250" />
+  &nbsp;&nbsp;
+  <img src="docs/settings.png" alt="Plugin Settings" width="250" />
 </p>
   
 
@@ -15,10 +17,10 @@ A RuneLite plugin that tracks Nex kills, personal loot, team unique drops, and s
 Type these in public, friends, or clan chat to share your Nex dry stats. Counts come from your **saved kill logs** (the same data as the side panel), not a separate counter.
 
 
-| Command                      | What it shows             |
-| ---------------------------- | ------------------------- |
-| `!nexdry` or `!nexdrystreak` | Personal dry and team dry |
-| `!nexlast` or `!nexlastitem` | Last personal unique only |
+| Command                      
+| ---------------------------- 
+| `!nexdry` or `!nexdrystreak` 
+| `!nexlast` or `!nexlastitem` 
 
 
 Example after typing `!nexdry`:
@@ -26,13 +28,6 @@ Example after typing `!nexdry`:
 ```text
 Nex Dry Streak - Personal: 120 / Team: 45
 ```
-
-- **Personal** — kills since *you* last received a unique-table drop (Nexling does **not** reset this)
-- **Team** — kills since *anyone* on your team last received a unique-table drop (same idea as **Kills Since Last Drop** in the panel)
-
-Nexling is a tertiary drop (**1/500**), rolled independently from the unique table (**~1/43**). It appears as its own row in the Uniques table (with its own Due) and is included in Own/Seen totals. It does **not** reset unique dry streaks or the Total Due for uniques.
-
-
 
 ### Who can see the rendered message?
 
@@ -71,6 +66,9 @@ Equal damage examples (no MVP):
 **When you receive a personal drop**, 1.00 is subtracted from that item's Due. If you were at **1.20** when it dropped, you carry **0.20** into the next cycle instead of resetting to zero.
 **The Total row** tracks any unique, using the overall team roll rate (**1/43**) scaled by your contribution each kill.
 
+Nexling is a tertiary drop (**1/500**), rolled independently from the unique table (**~1/43**). It appears as its own row in the Uniques table (with its own Due) and is included in Own/Seen totals. It does **not** reset unique dry streaks or the Total Due for uniques.
+
 ### Kill contribution
 
 Kill contribution is your damage percentage for that fight, tracked from hitsplats on Nex. The average shown in the panel includes the **10% MVP boost** when you were MVP.
+

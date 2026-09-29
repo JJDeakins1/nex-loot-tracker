@@ -8,5 +8,5 @@ public class NexLootTrackerItem
 	public String name;
 	public int id;
 	public int quantity;
-	public int price;
+	public long price;
 }

@@ -543,8 +543,8 @@ public class NexLootTrackerPanel extends PluginPanel
 		}
 
 		ArrayList<NexLootTrackerItem> regularDropsList = new ArrayList<>(aggregated.values());
-		regularDropsList.sort((a, b) -> Integer.compare(b.getPrice(), a.getPrice()));
-		int regularDropsSum = regularDropsList.stream().mapToInt(NexLootTrackerItem::getPrice).sum();
+		regularDropsList.sort((a, b) -> Long.compare(b.getPrice(), a.getPrice()));
+		long regularDropsSum = regularDropsList.stream().mapToLong(NexLootTrackerItem::getPrice).sum();
 
 		JPanel title = new JPanel(new GridLayout(0, 2));
 		title.setBackground(ColorScheme.DARKER_GRAY_COLOR.darker());

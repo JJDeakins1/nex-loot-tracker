@@ -204,7 +204,7 @@ public class SplitChanger extends JPanel
 			{
 				if (!locked)
 				{
-					int value = parse(splitReceived.getText());
+					long value = parse(splitReceived.getText());
 					if (value != kill.getLootSplitReceived() && value != -5)
 					{
 						kill.setLootSplitReceived(value);
@@ -384,7 +384,7 @@ public class SplitChanger extends JPanel
 		return textField;
 	}
 
-	private int atLeastZero(int value)
+	private long atLeastZero(long value)
 	{
 		return Math.max(value, 0);
 	}
@@ -405,7 +405,7 @@ public class SplitChanger extends JPanel
 
 	private void setSplit()
 	{
-		int splitSize = kill.getSpecialLootValue() / Math.max(kill.getTeamSize(), 1);
+		long splitSize = kill.getSpecialLootValue() / Math.max(kill.getTeamSize(), 1);
 		if (!kill.isFreeForAll())
 		{
 			if (kill.isSpecialLootInOwnName())
@@ -568,7 +568,7 @@ public class SplitChanger extends JPanel
 		return hasDecimal ? (truncated / 10d) + suffix : (truncated / 10) + suffix;
 	}
 
-	public static int parse(String s)
+	public static long parse(String s)
 	{
 		if (s == null || s.isEmpty())
 		{
@@ -599,12 +599,12 @@ public class SplitChanger extends JPanel
 			String substr = s.substring(0, s.length() - 1);
 			if (isNumeric(substr))
 			{
-				return (int) Math.round(Double.parseDouble(substr) * multiplier);
+				return Math.round(Double.parseDouble(substr) * multiplier);
 			}
 		}
 		else if (isNumeric(s))
 		{
-			return Integer.parseInt(s.replace(",", ""));
+			return Long.parseLong(s.replace(",", ""));
 		}
 
 		return -5;

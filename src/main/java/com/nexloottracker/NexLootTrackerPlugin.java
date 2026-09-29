@@ -447,7 +447,7 @@ public class NexLootTrackerPlugin extends Plugin
 		applyUniqueDrop(unique, jagexReceiver, inOwnName, getItemPrice(unique.getItemId()));
 	}
 
-	private void applyUniqueDrop(NexUniques unique, String receiver, boolean inOwnName, int itemPrice)
+	private void applyUniqueDrop(NexUniques unique, String receiver, boolean inOwnName, long itemPrice)
 	{
 		if (unique == null)
 		{
@@ -509,7 +509,7 @@ public class NexLootTrackerPlugin extends Plugin
 		NexUniques unique,
 		String receiver,
 		boolean inOwnName,
-		int itemPrice
+		long itemPrice
 	)
 	{
 		final NexLootTracker pending = copyKill(source);
@@ -538,7 +538,7 @@ public class NexLootTrackerPlugin extends Plugin
 		NexUniques unique,
 		String receiver,
 		boolean inOwnName,
-		int itemPrice
+		long itemPrice
 	)
 	{
 		kill.setSpecialLoot(unique.getName());
@@ -861,7 +861,7 @@ public class NexLootTrackerPlugin extends Plugin
 			return;
 		}
 
-		final int lootSplit = kill.getSpecialLootValue() / kill.getTeamSize();
+		final long lootSplit = kill.getSpecialLootValue() / kill.getTeamSize();
 		final int cutoff = config.FFACutoff();
 
 		if (config.defaultFFA() || lootSplit < cutoff)
@@ -906,7 +906,7 @@ public class NexLootTrackerPlugin extends Plugin
 		return lootList;
 	}
 
-	private int getItemPrice(int itemId)
+	private long getItemPrice(int itemId)
 	{
 		return itemManager.getItemPrice(itemId);
 	}

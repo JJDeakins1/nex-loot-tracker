@@ -29,13 +29,13 @@ public class NexLootTracker
 	String specialLoot = "";
 	String specialLootReceiver = "";
 	boolean specialLootInOwnName = false;
-	int specialLootValue = -1;
+	long specialLootValue = -1;
 
 	String petReceiver = "";
 	boolean petInMyName = false;
 
-	int lootSplitReceived = -1;
-	int lootSplitPaid = -1;
+	long lootSplitReceived = -1;
+	long lootSplitPaid = -1;
 
 	ArrayList<NexLootTrackerItem> lootList = new ArrayList<>();
 
